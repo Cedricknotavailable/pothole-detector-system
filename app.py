@@ -210,6 +210,32 @@ def _redirect_back(default_endpoint: str = 'users_page'):
         return redirect(nxt)
     return redirect(url_for(default_endpoint))
 
+
+def write_audit_log(action: str, resource_type: str = None, resource_id: int = None, detail: dict = None):
+    """Write an entry to the audit log. Safe to call anywhere — never raises."""
+    try:
+        cu = _get_current_user()
+        actor_id = int(cu.id) if cu else None
+        actor_username = cu.username if cu else None
+        ip = request.remote_addr if request else None
+        entry = AuditLog(
+            timestamp=int(time.time()),
+            actor_id=actor_id,
+            actor_username=actor_username,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            detail=json.dumps(detail, separators=(',', ':')) if detail else None,
+            ip_address=ip,
+        )
+        db.session.add(entry)
+        db.session.commit()
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
 # User model for authentication (accounts only)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -324,6 +350,32 @@ class Settings(db.Model):
     key = db.Column(db.String(50), unique=True, nullable=False)
     value = db.Column(db.String(255), nullable=True)
     updated_at = db.Column(db.Integer, nullable=False, default=lambda: int(time.time()), onupdate=lambda: int(time.time()))
+
+
+class AuditLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.Integer, nullable=False, default=lambda: int(time.time()), index=True)
+    actor_id = db.Column(db.Integer, nullable=True)
+    actor_username = db.Column(db.String(150), nullable=True)
+    action = db.Column(db.String(80), nullable=False, index=True)
+    resource_type = db.Column(db.String(50), nullable=True)
+    resource_id = db.Column(db.Integer, nullable=True)
+    detail = db.Column(db.Text, nullable=True)  # JSON string
+    ip_address = db.Column(db.String(45), nullable=True)
+
+    @property
+    def timestamp_iso(self) -> str:
+        try:
+            return time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(int(self.timestamp)))
+        except Exception:
+            return str(self.timestamp)
+
+    @property
+    def detail_parsed(self):
+        try:
+            return json.loads(self.detail) if self.detail else {}
+        except Exception:
+            return {}
 
 # Ensure database tables are created safely within app context
 with app.app_context():
@@ -456,6 +508,31 @@ with app.app_context():
         db.session.commit()
     except Exception:
         db.session.rollback()
+
+    # Ensure audit_log table exists (safe migration guard)
+    try:
+        db.session.execute(text("SELECT 1 FROM audit_log LIMIT 1"))
+    except Exception:
+        db.session.rollback()
+        try:
+            db.session.execute(text(
+                "CREATE TABLE IF NOT EXISTS audit_log ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "timestamp INTEGER NOT NULL, "
+                "actor_id INTEGER, "
+                "actor_username VARCHAR(150), "
+                "action VARCHAR(80) NOT NULL, "
+                "resource_type VARCHAR(50), "
+                "resource_id INTEGER, "
+                "detail TEXT, "
+                "ip_address VARCHAR(45)"
+                ")"
+            ))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS ix_audit_log_timestamp ON audit_log (timestamp)"))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS ix_audit_log_action ON audit_log (action)"))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
 model = YOLO("best.pt")  # use your model path
 camera = None
@@ -794,6 +871,7 @@ def login():
 
         session['user_id'] = int(user.id)
         _get_csrf_token()
+        write_audit_log('USER_LOGIN', 'user', int(user.id), {'username': user.username})
         if _is_admin(user):
             return redirect(url_for('index_page'))
         return redirect(url_for('map_page'))
@@ -859,6 +937,9 @@ def recover():
 
 @app.route('/logout')
 def logout():
+    cu = _get_current_user()
+    if cu:
+        write_audit_log('USER_LOGOUT', 'user', int(cu.id), {'username': cu.username})
     session.clear()
     return redirect(url_for('login'))
 
@@ -923,6 +1004,7 @@ def register():
             user.set_password(password)
             db.session.add(user)
             db.session.commit()
+            write_audit_log('USER_REGISTERED', 'user', int(user.id), {'username': username, 'email': email})
         except IntegrityError:
             db.session.rollback()
             field_errors["username"].append('Username may be taken.')
@@ -933,7 +1015,6 @@ def register():
             return render_template('/register.html', errors=['An unexpected error occurred. Please try again.'], field_errors=field_errors, values={'username': username, 'email': email})
 
         return redirect(url_for('login'))
-
     return render_template('/register.html', errors=[], field_errors={"username": [], "email": [], "password": []}, values={})
 
 
@@ -1007,6 +1088,11 @@ def settings_page():
                 try:
                     db.session.commit()
                     success = True
+                    write_audit_log('SETTINGS_CHANGED', 'settings', None, {
+                        'fixed_defect_expiration_days': expiration_days,
+                        'auto_fix_threshold': auto_fix_threshold,
+                        'false_report_threshold': false_report_threshold,
+                    })
                 except Exception as e:
                     db.session.rollback()
                     errors.append('Failed to save settings: ' + str(e))
@@ -1105,6 +1191,7 @@ def b2_connect():
         b2_api = B2Api(info)
         b2_api.authorize_account("production", key_id, app_key)
         b2_api.get_bucket_by_name(bucket_name)
+        write_audit_log('B2_CONNECTED', 'settings', None, {'bucket': bucket_name})
         return redirect(url_for('settings_page', success_msg='Connected to Backblaze B2 successfully.'))
     except Exception:
         return redirect(url_for('settings_page', error_msg='Backblaze B2 connection failed. Verify Key ID, Application Key, and bucket access.'))
@@ -1116,6 +1203,7 @@ def b2_disconnect():
     try:
         Settings.query.filter(Settings.key.in_(['b2_key_id', 'b2_app_key', 'b2_bucket_name'])).delete(synchronize_session=False)
         db.session.commit()
+        write_audit_log('B2_DISCONNECTED', 'settings', None, {})
     except Exception:
         db.session.rollback()
     return redirect(url_for('settings_page', success_msg='Disconnected from Backblaze B2.'))
@@ -1286,6 +1374,7 @@ def admin_backups_export():
             "timestamp": started_at,
             "status": "success"
         })
+        write_audit_log('BACKUP_EXPORTED', 'backup', None, {'filename': safe_name})
         return send_file(output_path, as_attachment=True, download_name=safe_name)
     except Exception:
         _backup_log_append({
@@ -1354,6 +1443,7 @@ def admin_backups_import():
             "timestamp": started_at,
             "status": "success"
         })
+        write_audit_log('BACKUP_RESTORED', 'backup', None, {'filename': filename})
         return jsonify({'success': True, 'message': 'Database restored successfully.'})
     except Exception:
         _backup_log_append({
@@ -1398,6 +1488,72 @@ def handle_large_upload(error):
             return jsonify({'success': False, 'message': 'File too large.'}), 413
         return redirect(url_for('admin_backups_page', error_msg='File too large.'))
     return ("File too large.", 413)
+
+
+@app.route('/api/audit-log')
+@require_admin_view
+def get_audit_log():
+    try:
+        page = max(1, int(request.args.get('page', 1)))
+        per_page = 50
+        action_filter = (request.args.get('action') or '').strip()
+        actor_filter = (request.args.get('actor') or '').strip()
+        start_date = (request.args.get('start_date') or '').strip()
+        end_date = (request.args.get('end_date') or '').strip()
+
+        query = AuditLog.query
+
+        if action_filter:
+            query = query.filter(AuditLog.action == action_filter)
+        if actor_filter:
+            query = query.filter(AuditLog.actor_username.ilike(f'%{actor_filter}%'))
+        if start_date:
+            try:
+                start_ts = int(time.mktime(time.strptime(start_date, '%Y-%m-%d')))
+                query = query.filter(AuditLog.timestamp >= start_ts)
+            except ValueError:
+                pass
+        if end_date:
+            try:
+                end_ts = int(time.mktime(time.strptime(end_date, '%Y-%m-%d'))) + 86399
+                query = query.filter(AuditLog.timestamp <= end_ts)
+            except ValueError:
+                pass
+
+        total = query.count()
+        pages = max(1, (total + per_page - 1) // per_page)
+        if page > pages:
+            page = pages
+
+        entries = query.order_by(desc(AuditLog.timestamp)).offset((page - 1) * per_page).limit(per_page).all()
+
+        items = []
+        for e in entries:
+            items.append({
+                'id': e.id,
+                'timestamp': e.timestamp,
+                'timestamp_iso': e.timestamp_iso,
+                'actor_id': e.actor_id,
+                'actor_username': e.actor_username or '—',
+                'action': e.action,
+                'resource_type': e.resource_type or '—',
+                'resource_id': e.resource_id,
+                'detail': e.detail_parsed,
+                'ip_address': e.ip_address or '—',
+            })
+
+        # Distinct action types for filter dropdown
+        action_types = [r[0] for r in db.session.query(AuditLog.action).distinct().order_by(AuditLog.action).all()]
+
+        return jsonify({
+            'items': items,
+            'total': total,
+            'page': page,
+            'pages': pages,
+            'action_types': action_types,
+        })
+    except Exception as e:
+        return jsonify({'items': [], 'total': 0, 'page': 1, 'pages': 1, 'action_types': [], 'error': str(e)})
 
 @app.route('/start', methods=['POST'])
 def start_stream():
@@ -1527,6 +1683,9 @@ def reports_page():
                 pass
 
             db.session.commit()
+            write_audit_log('REPORT_SUBMITTED', 'report', int(r.id), {
+                'type': obstruction_type, 'lat': float(lat), 'lon': float(lng)
+            })
             return redirect(url_for('reports_page', success='1'))
 
         # fall through to render with errors
@@ -1866,6 +2025,9 @@ def user_set_status(user_id: int):
     else:
         user.suspended_until = None
     db.session.commit()
+    write_audit_log('USER_STATUS_CHANGED', 'user', int(user.id), {
+        'username': user.username, 'new_status': new_status
+    })
     return _redirect_back('users_page')
 
 
@@ -1887,6 +2049,9 @@ def user_set_role(user_id: int):
 
     user.role = new_role
     db.session.commit()
+    write_audit_log('USER_ROLE_CHANGED', 'user', int(user.id), {
+        'username': user.username, 'new_role': new_role
+    })
     return _redirect_back('users_page')
 
 
@@ -1911,10 +2076,12 @@ def user_delete(user_id: int):
         user.status = 'archived'
         user.suspended_until = None
         db.session.commit()
+        write_audit_log('USER_ARCHIVED', 'user', int(user.id), {'username': user.username, 'reason': 'has_activity'})
         return _redirect_back('users_page')
 
     db.session.delete(user)
     db.session.commit()
+    write_audit_log('USER_DELETED', 'user', user_id, {'username': user.username})
     return _redirect_back('users_page')
 
 
@@ -2255,6 +2422,9 @@ def review_detection(detection_id: int):
         if det.confidence_score is None:
             det.confidence_score = det.confidence
         db.session.commit()
+        write_audit_log('DETECTION_REVIEWED', 'detection', int(det.id), {
+            'action': action, 'final_class': det.final_class, 'review_status': det.review_status
+        })
         return jsonify({'success': True})
     except Exception as e:
         db.session.rollback()
@@ -2513,6 +2683,9 @@ def flag_report_false(report_id):
             db.session.add(notif)
             
         db.session.commit()
+        write_audit_log('REPORT_FLAGGED_FALSE', 'report', int(report.id), {
+            'user_id': report.user_id, 'title': report.title
+        })
         return jsonify({'success': True})
     except Exception as e:
         db.session.rollback()
@@ -2557,6 +2730,9 @@ def mark_fixed():
         
         if updated_count > 0:
             db.session.commit()
+            write_audit_log('DEFECTS_MARKED_FIXED', 'defect', None, {
+                'count': updated_count, 'ids': ids
+            })
             
         return jsonify({'success': True, 'updated': updated_count})
     except Exception as e:
@@ -2977,16 +3153,22 @@ def get_analytics_repair_performance():
     timestamps.sort()
     
     data_map = {}
+    daily_map = {}  # { "YYYY-Www": { "YYYY-MM-DD": count } }
     for ts in timestamps:
         dt = time.localtime(ts)
-        key = time.strftime('%Y-W%U', dt)
-        data_map[key] = data_map.get(key, 0) + 1
+        week_key = time.strftime('%Y-W%U', dt)
+        day_key = time.strftime('%Y-%m-%d', dt)
+        data_map[week_key] = data_map.get(week_key, 0) + 1
+        if week_key not in daily_map:
+            daily_map[week_key] = {}
+        daily_map[week_key][day_key] = daily_map[week_key].get(day_key, 0) + 1
         
     sorted_keys = sorted(data_map.keys())
     
     return jsonify({
         'labels': sorted_keys,
-        'values': [data_map[k] for k in sorted_keys]
+        'values': [data_map[k] for k in sorted_keys],
+        'daily_breakdown': {k: daily_map.get(k, {}) for k in sorted_keys}
     })
 
 

@@ -8,39 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/users.css') }}" />
-    <style>
-      .settings-form { max-width: 600px; }
-      .setting-group { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #f1f5f9; }
-      .setting-group:last-child { border-bottom: none; }
-      .setting-title { font-weight: 700; font-size: 16px; color: #0f172a; margin-bottom: 8px; }
-      .setting-desc { font-size: 14px; color: #64748b; margin-bottom: 16px; line-height: 1.5; }
-      .setting-input-wrap { display: flex; align-items: center; gap: 12px; }
-      .setting-input { width: 120px; }
-      .setting-unit { font-size: 14px; font-weight: 600; color: #475569; }
-
-      /* Accordion Styles */
-      .accordion-item { border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
-      .accordion-header { 
-        padding: 16px 24px; background: #f8fafc; cursor: pointer; 
-        font-weight: 700; color: #0f172a; font-size: 15px; 
-        display: flex; justify-content: space-between; align-items: center;
-        user-select: none;
-      }
-      .accordion-header:hover { background: #f1f5f9; }
-      .accordion-header::after { content: '▼'; font-size: 12px; color: #64748b; transition: transform 0.2s; }
-      .accordion-item.active .accordion-header::after { transform: rotate(180deg); }
-      .accordion-content { display: none; padding: 24px; background: #fff; border-top: 1px solid #e2e8f0; }
-      .accordion-item.active .accordion-content { display: block; }
-
-      .drive-status { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding: 12px; background: #f8fafc; border-radius: 8px; }
-      .drive-status.connected { background: #ecfdf5; color: #065f46; }
-      .drive-status.disconnected { background: #fef2f2; color: #b91c1c; }
-      
-      .action-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; border: none; text-decoration: none; }
-      .btn-primary { background: var(--accent); color: #fff; }
-      .btn-outline { background: #fff; border: 1px solid #cbd5e1; color: #475569; }
-      .btn-outline:hover { border-color: #94a3b8; background: #f8fafc; }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}" />
   </head>
   <body>
     <header class="topbar">
@@ -230,6 +198,69 @@
               </div>
             </div>
 
+            <!-- Section 3: Activity & Audit Log -->
+            <div class="accordion-item" id="auditLogAccordion">
+              <div class="accordion-header" onclick="toggleAccordion(this)">Activity &amp; Audit Log</div>
+              <div class="accordion-content">
+
+                <div class="setting-group" style="border-bottom:none; padding-bottom:0;">
+                  <div class="setting-title">System Activity Log</div>
+                  <div class="setting-desc">A chronological record of significant actions performed by administrators and users — including logins, user management, report actions, and system changes.</div>
+
+                  <!-- Audit Log Filters -->
+                  <div class="card controls audit-filters-bar">
+                    <div class="control-row audit-control-row">
+                      <div class="control">
+                        <label class="control-label">Action Type</label>
+                        <select id="auditActionFilter" class="control-input">
+                          <option value="">All Actions</option>
+                        </select>
+                      </div>
+                      <div class="control">
+                        <label class="control-label">Actor</label>
+                        <input type="text" id="auditActorFilter" class="control-input" placeholder="Username..." />
+                      </div>
+                      <div class="control">
+                        <label class="control-label">Start Date</label>
+                        <input type="date" id="auditStartDate" class="control-input" />
+                      </div>
+                      <div class="control">
+                        <label class="control-label">End Date</label>
+                        <input type="date" id="auditEndDate" class="control-input" />
+                      </div>
+                      <div class="control actions">
+                        <button class="btn secondary" onclick="loadAuditLog(1)">Apply</button>
+                        <button class="btn secondary" onclick="exportAuditLog()" title="Export as CSV">Export</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Audit Log Table -->
+                  <div class="card" style="margin-top:12px;">
+                    <div class="table-wrap">
+                      <table class="table" id="auditTable">
+                        <thead>
+                          <tr>
+                            <th>Timestamp</th>
+                            <th>Actor</th>
+                            <th>Action</th>
+                            <th>Resource</th>
+                            <th>Detail</th>
+                            <th>IP Address</th>
+                          </tr>
+                        </thead>
+                        <tbody id="auditTableBody">
+                          <tr><td colspan="6" class="empty">Loading...</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="audit-pagination" id="auditPagination"></div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
           </div>
         </div>
       </main>
@@ -318,6 +349,141 @@
          fetchNotifications();
          setInterval(fetchNotifications, 30000);
        })();
+
+      // --- Audit Log ---
+      const ACTION_CATEGORIES = {
+        USER_LOGIN: 'auth', USER_LOGOUT: 'auth', USER_REGISTERED: 'auth',
+        USER_STATUS_CHANGED: 'user-mgmt', USER_ROLE_CHANGED: 'user-mgmt',
+        USER_DELETED: 'user-mgmt', USER_ARCHIVED: 'user-mgmt',
+        REPORT_SUBMITTED: 'reports', REPORT_FLAGGED_FALSE: 'reports',
+        DEFECTS_MARKED_FIXED: 'defects', DETECTION_REVIEWED: 'defects',
+        SETTINGS_CHANGED: 'settings', B2_CONNECTED: 'settings', B2_DISCONNECTED: 'settings',
+        BACKUP_EXPORTED: 'backup', BACKUP_RESTORED: 'backup',
+      };
+      const CATEGORY_BADGE = {
+        'auth': 'audit-badge--auth',
+        'user-mgmt': 'audit-badge--user',
+        'reports': 'audit-badge--report',
+        'defects': 'audit-badge--defect',
+        'settings': 'audit-badge--settings',
+        'backup': 'audit-badge--backup',
+      };
+
+      let _auditCurrentPage = 1;
+      let _auditActionTypes = [];
+
+      async function loadAuditLog(page) {
+        page = page || _auditCurrentPage;
+        _auditCurrentPage = page;
+        const action = document.getElementById('auditActionFilter').value;
+        const actor = document.getElementById('auditActorFilter').value;
+        const start = document.getElementById('auditStartDate').value;
+        const end = document.getElementById('auditEndDate').value;
+
+        const params = new URLSearchParams({ page });
+        if (action) params.set('action', action);
+        if (actor) params.set('actor', actor);
+        if (start) params.set('start_date', start);
+        if (end) params.set('end_date', end);
+
+        const tbody = document.getElementById('auditTableBody');
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading...</td></tr>';
+
+        try {
+          const res = await fetch('/api/audit-log?' + params.toString());
+          const data = await res.json();
+
+          // Populate action type dropdown once
+          if (_auditActionTypes.length === 0 && data.action_types && data.action_types.length > 0) {
+            _auditActionTypes = data.action_types;
+            const sel = document.getElementById('auditActionFilter');
+            data.action_types.forEach(a => {
+              const opt = document.createElement('option');
+              opt.value = a;
+              opt.textContent = a.replace(/_/g, ' ');
+              sel.appendChild(opt);
+            });
+            if (action) sel.value = action;
+          }
+
+          if (!data.items || data.items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty">No audit log entries found.</td></tr>';
+          } else {
+            tbody.innerHTML = data.items.map(e => {
+              const cat = ACTION_CATEGORIES[e.action] || 'settings';
+              const badgeCls = CATEGORY_BADGE[cat] || '';
+              const detail = e.detail && Object.keys(e.detail).length
+                ? Object.entries(e.detail).map(([k, v]) => `<span class="audit-detail-kv"><b>${k}:</b> ${v}</span>`).join(' ')
+                : '—';
+              const resource = e.resource_type !== '—'
+                ? `${e.resource_type}${e.resource_id ? ' #' + e.resource_id : ''}`
+                : '—';
+              return `<tr>
+                <td class="mono" style="font-size:12px;">${e.timestamp_iso}</td>
+                <td style="font-weight:700;">${e.actor_username}</td>
+                <td><span class="audit-badge ${badgeCls}">${e.action.replace(/_/g, ' ')}</span></td>
+                <td style="font-size:13px;">${resource}</td>
+                <td class="audit-detail-cell">${detail}</td>
+                <td class="mono" style="font-size:12px;">${e.ip_address}</td>
+              </tr>`;
+            }).join('');
+          }
+
+          renderAuditPagination(data.page, data.pages, data.total);
+        } catch (err) {
+          tbody.innerHTML = '<tr><td colspan="6" class="empty">Failed to load audit log.</td></tr>';
+        }
+      }
+
+      function renderAuditPagination(page, pages, total) {
+        const el = document.getElementById('auditPagination');
+        if (pages <= 1) { el.innerHTML = ''; return; }
+        let html = `<span class="range">${total} entries</span><div class="pager">`;
+        if (page > 1) html += `<a class="page-btn" href="#" onclick="loadAuditLog(${page - 1});return false;">&#8592; Prev</a>`;
+        const start = Math.max(1, page - 2), end = Math.min(pages, page + 2);
+        for (let i = start; i <= end; i++) {
+          html += `<a class="page-num${i === page ? ' active' : ''}" href="#" onclick="loadAuditLog(${i});return false;">${i}</a>`;
+        }
+        if (page < pages) html += `<a class="page-btn" href="#" onclick="loadAuditLog(${page + 1});return false;">Next &#8594;</a>`;
+        html += '</div>';
+        el.innerHTML = html;
+      }
+
+      function exportAuditLog() {
+        const action = document.getElementById('auditActionFilter').value;
+        const actor = document.getElementById('auditActorFilter').value;
+        const start = document.getElementById('auditStartDate').value;
+        const end = document.getElementById('auditEndDate').value;
+        const params = new URLSearchParams({ page: 1, per_page: 10000 });
+        if (action) params.set('action', action);
+        if (actor) params.set('actor', actor);
+        if (start) params.set('start_date', start);
+        if (end) params.set('end_date', end);
+
+        fetch('/api/audit-log?' + params.toString())
+          .then(r => r.json())
+          .then(data => {
+            const rows = [['Timestamp', 'Actor', 'Action', 'Resource Type', 'Resource ID', 'Detail', 'IP Address']];
+            (data.items || []).forEach(e => {
+              rows.push([
+                e.timestamp_iso, e.actor_username, e.action,
+                e.resource_type, e.resource_id || '', JSON.stringify(e.detail), e.ip_address
+              ]);
+            });
+            const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'audit_log.csv'; a.click();
+            URL.revokeObjectURL(url);
+          });
+      }
+
+      // Auto-load audit log when its accordion is opened
+      document.getElementById('auditLogAccordion').querySelector('.accordion-header').addEventListener('click', function() {
+        const willOpen = !document.getElementById('auditLogAccordion').classList.contains('active');
+        if (willOpen) setTimeout(() => loadAuditLog(1), 50);
+      });
     </script>
   </body>
 </html>

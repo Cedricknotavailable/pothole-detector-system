@@ -1,0 +1,21 @@
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.full-width { grid-column: 1 / -1; }
+.upload-box {
+    border: 2px dashed var(--line);
+    border-radius: 10px;
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #f8fafc;
+}
+.upload-box:hover { border-color: var(--accent); background: #eff6ff; }
+.upload-box.has-file { border-style: solid; border-color: #cbd5e1; background: #fff; padding: 12px; }
+.upload-icon { font-size: 24px; color: #94a3b8; margin-bottom: 8px; }
+.upload-text { font-size: 13px; font-weight: 600; color: #64748b; }
+.preview-img { max-width: 100%; max-height: 200px; border-radius: 8px; display: none; margin: 0 auto; }
+.btn-primary { background: var(--accent); color: #fff; border: 1px solid var(--accent); }
+.btn-primary:hover { background: #2563eb; border-color: #2563eb; }
+.location-group { position: relative; }
+.location-btn { position: absolute; right: 8px; top: 32px; background: transparent; border: none; color: var(--accent); font-weight: 700; font-size: 12px; cursor: pointer; padding: 4px 8px; display: flex; align-items: center; gap: 4px; }
+.location-btn:hover { text-decoration: underline; }
