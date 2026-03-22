@@ -16,8 +16,6 @@ numpy
 matplotlib
 scipy
 reportlab
-xhtml2pdf
-pyHanko
 pypdf
 qrcode
 polars
