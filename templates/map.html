@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Map - Surveyor.AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/map.css') }}" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">SURVEYOR.AI</div>
+        <div style="margin-left:auto; margin-right:12px; position:relative;">
+          <button id="notifBtn" style="background:none; border:none; width:40px; height:40px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; position:relative;">
+            <img src="{{ url_for('static', filename='icons/bell.svg') }}" width="24" height="24" alt="Notifications" style="filter: brightness(0) invert(1);" />
+            <div id="notifBadge" style="position:absolute; top:6px; right:6px; width:10px; height:10px; background:#ef4444; border:2px solid #556276; border-radius:50%; display:none;"></div>
+          </button>
+          <div id="notifPopup" style="display:none; position:absolute; right:0; top:50px; width:320px; background:#fff; border:1px solid #cbd5e1; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:1000; overflow:hidden;">
+            <div style="padding:12px 16px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+              <div style="font-weight:700; color:#0f172a; font-size:14px;">Notifications</div>
+              <button id="markAllReadBtn" style="background:none; border:none; color:#3b82f6; font-size:12px; font-weight:600; cursor:pointer; display:none;">Mark all read</button>
+            </div>
+            <div id="notifList" style="max-height:300px; overflow-y:auto;">
+              <div style="padding:20px; text-align:center; color:#64748b; font-size:13px;">No new notifications</div>
+            </div>
+          </div>
+        </div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <nav class="nav">
+          {% if is_admin %}
+            <a href="/index">Survey</a>
+            <a class="active" href="/map">Map</a>
+            <a href="/users">User management</a>
+            <a href="/defects">Defects Management</a>
+            <a href="/settings">Settings</a>
+            <a href="/admin/backups">Backup Management</a>
+            <a href="/analytics">Analytics</a>
+            <a href="/logout">Log Out</a>
+          {% else %}
+            <a class="active" href="/map">Map</a>
+            <a href="/reports">Submit report</a>
+            <a href="/my-reports">My reports</a>
+            <a href="/logout">Log Out</a>
+          {% endif %}
+        </nav>
+      </aside>
+      <main class="main">
+        <div class="map-wrap">
+          <div class="map-card">
+            <!-- Left compact counters -->
+            <div class="legend-left">
+              <div class="item"><span class="dot r"></span>5</div>
+              <div class="item"><span class="dot y"></span>8</div>
+              <div class="item"><span class="dot g"></span>12</div>
+              <div class="item"><span class="dot grey"></span>3</div>
+              <div class="item"><span class="dot r"></span>6</div>
+              <div class="item"><span class="dot y"></span>3</div>
+              <div class="item"><span class="dot g"></span>11</div>
+              <div class="item"><span class="dot grey"></span>4</div>
+            </div>
+
+            <!-- Right legend for types -->
+            <div class="legend-right">
+              <div class="row"><span class="pin r"></span> pothole L</div>
+              <div class="row"><span class="pin y"></span> pothole M</div>
+              <div class="row"><span class="pin g"></span> pothole S</div>
+              <div class="row"><span class="pin grey"></span> reported pothole</div>
+              <div class="row"><span class="pin r"></span> crack L</div>
+              <div class="row"><span class="pin y"></span> crack M</div>
+              <div class="row"><span class="pin g"></span> crack S</div>
+              <div class="row"><span class="pin grey"></span> reported crack</div>
+            </div>
+
+            <div id="map"></div>
+          </div>
+
+          <div class="side-panel">
+            <!-- Filters panel -->
+            <div class="filters">
+              <div class="filter-group">
+                <div>Filter by type:</div>
+                <div class="pills">
+                  <button class="pill active" data-type="pothole">Pothole</button>
+                  <button class="pill" data-type="crack">Crack</button>
+                  {% if is_admin %}
+                  <button class="pill active" data-type="unsure">Unsure</button>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="filter-group">
+                <div>Filter by source:</div>
+                <div class="pills">
+                  <button class="pill active" data-source="survey">Survey</button>
+                  <button class="pill active" data-source="report">Report</button>
+                </div>
+              </div>
+              <div class="filter-group">
+                <div>Area selection:</div>
+                <select id="areaSelect" class="select">
+                  <option value="municipalities" selected>municipalities</option>
+                  <option value="provinces">provinces</option>
+                  <option value="regions">regions</option>
+                </select>
+              </div>
+              <div class="actions">
+                <button class="btn" id="resetFilters">Reset</button>
+              </div>
+            </div>
+
+            <div class="summary-card">
+              <div class="summary-title">Area summary</div>
+              <div class="summary-sub" id="areaSummaryName">No area selected</div>
+              <div class="summary-grid">
+                <div class="summary-row">
+                  <img class="summary-icon" src="{{ url_for('static', filename='icons/report_pothole.png') }}" alt="User pothole" />
+                  <div class="summary-label">User potholes</div>
+                  <div class="summary-value" id="countUserPothole">0</div>
+                </div>
+                <div class="summary-row">
+                  <img class="summary-icon" src="{{ url_for('static', filename='icons/report_roadcrack.png') }}" alt="User road crack" />
+                  <div class="summary-label">User road cracks</div>
+                  <div class="summary-value" id="countUserCrack">0</div>
+                </div>
+                <div class="summary-row">
+                  <img class="summary-icon" src="{{ url_for('static', filename='icons/pothole.png') }}" alt="Detected pothole" />
+                  <div class="summary-label">Detected potholes</div>
+                  <div class="summary-value" id="countDetectedPothole">0</div>
+                </div>
+                <div class="summary-row">
+                  <img class="summary-icon" src="{{ url_for('static', filename='icons/roadcrack.png') }}" alt="Detected road crack" />
+                  <div class="summary-label">Detected road cracks</div>
+                  <div class="summary-value" id="countDetectedCrack">0</div>
+                </div>
+                <!-- Fixed items summary -->
+                <div class="summary-row">
+                  <img class="summary-icon" src="{{ url_for('static', filename='icons/fixed_pothole.png') }}" alt="Fixed User Pothole" />
+                  <div class="summary-label">Fixed User Potholes</div>
+                  <div class="summary-value" id="countFixedUserPothole">0</div>
+                </div>
+                <div class="summary-row">
+                  <img class="summary-icon" src="{{ url_for('static', filename='icons/fixed_roadcrack.png') }}" alt="Fixed User Crack" />
+                  <div class="summary-label">Fixed User Cracks</div>
+                  <div class="summary-value" id="countFixedUserCrack">0</div>
+                </div>
+                <div class="summary-row">
+                  <img class="summary-icon" src="{{ url_for('static', filename='icons/fixed_pothole.png') }}" alt="Fixed Detected Pothole" />
+                  <div class="summary-label">Fixed Detected Potholes</div>
+                  <div class="summary-value" id="countFixedDetectedPothole">0</div>
+                </div>
+                <div class="summary-row">
+                  <img class="summary-icon" src="{{ url_for('static', filename='icons/fixed_roadcrack.png') }}" alt="Fixed Detected Crack" />
+                  <div class="summary-label">Fixed Detected Cracks</div>
+                  <div class="summary-value" id="countFixedDetectedCrack">0</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:10px; align-items:center;">
+              {% if is_admin %}
+              <button id="markFixedBtn" class="btn primary" type="button" title="Toggle brush to mark fixed" aria-label="Toggle brush to mark fixed" style="padding: 8px 10px;">
+                <img id="markFixedIcon" alt="Mark fixed brush" style="width: 32px; height: 32px; display: block;" />
+              </button>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+      // Initialize Leaflet map centered on the Philippines
+      // Check if lat/lng are provided in URL params
+      const urlParams = new URLSearchParams(window.location.search);
+      const paramLat = parseFloat(urlParams.get('lat'));
+      const paramLng = parseFloat(urlParams.get('lng'));
+      
+      const initialCenter = (paramLat && paramLng) ? [paramLat, paramLng] : [12.8797, 121.7740];
+      const initialZoom = (paramLat && paramLng) ? 18 : 14;
+
+      const map = L.map('map', { zoomControl: true }).setView(initialCenter, initialZoom);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      const markersLayer = L.layerGroup().addTo(map);
+      const reportMarkersLayer = L.layerGroup().addTo(map);
+      const markerById = new Map();
+      const reportMarkerById = new Map();
+      let firstFit = !(paramLat && paramLng); // Disable auto-fit if specific coords requested
+      let selectedArea = null;
+      let detectionVersion = 0;
+      let reportVersion = 0;
+      const lastComputed = { key: null, detectionVersion: -1, reportVersion: -1 };
+
+      const ICON_POTHOLE_URL = "{{ url_for('static', filename='icons/pothole.png') }}";
+      const ICON_ROADCRACK_URL = "{{ url_for('static', filename='icons/roadcrack.png') }}";
+      const ICON_REPORT_POTHOLE_URL = "{{ url_for('static', filename='icons/report_pothole.png') }}";
+      const ICON_REPORT_ROADCRACK_URL = "{{ url_for('static', filename='icons/report_roadcrack.png') }}";
+      
+      // Green icons for fixed status
+      const ICON_FIXED_POTHOLE_URL = "{{ url_for('static', filename='icons/fixed_pothole.png') }}"; 
+      const ICON_FIXED_ROADCRACK_URL = "{{ url_for('static', filename='icons/fixed_roadcrack.png') }}";
+      const ICON_UNSURE_URL = "{{ url_for('static', filename='icons/unsure_object.png') }}";
+      const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
+      
+      const areaSummaryNameEl = document.getElementById('areaSummaryName');
+      const countUserPotholeEl = document.getElementById('countUserPothole');
+      const countUserCrackEl = document.getElementById('countUserCrack');
+      const countDetectedPotholeEl = document.getElementById('countDetectedPothole');
+      const countDetectedCrackEl = document.getElementById('countDetectedCrack');
+      const countFixedUserPotholeEl = document.getElementById('countFixedUserPothole');
+      const countFixedUserCrackEl = document.getElementById('countFixedUserCrack');
+      const countFixedDetectedPotholeEl = document.getElementById('countFixedDetectedPothole');
+      const countFixedDetectedCrackEl = document.getElementById('countFixedDetectedCrack');
+
+      function setSummaryCounts(counts) {
+        if (areaSummaryNameEl) areaSummaryNameEl.textContent = counts.areaName || 'No area selected';
+        if (countUserPotholeEl) countUserPotholeEl.textContent = String(counts.user.pothole || 0);
+        if (countUserCrackEl) countUserCrackEl.textContent = String(counts.user.crack || 0);
+        if (countDetectedPotholeEl) countDetectedPotholeEl.textContent = String(counts.detected.pothole || 0);
+        if (countDetectedCrackEl) countDetectedCrackEl.textContent = String(counts.detected.crack || 0);
+        if (countFixedUserPotholeEl) countFixedUserPotholeEl.textContent = String(counts.fixedUser ? counts.fixedUser.pothole : 0);
+        if (countFixedUserCrackEl) countFixedUserCrackEl.textContent = String(counts.fixedUser ? counts.fixedUser.crack : 0);
+        if (countFixedDetectedPotholeEl) countFixedDetectedPotholeEl.textContent = String(counts.fixedDetected ? counts.fixedDetected.pothole : 0);
+        if (countFixedDetectedCrackEl) countFixedDetectedCrackEl.textContent = String(counts.fixedDetected ? counts.fixedDetected.crack : 0);
+      }
+
+      setSummaryCounts({
+        areaName: 'No area selected',
+        user: { pothole: 0, crack: 0, other: 0 },
+        detected: { pothole: 0, crack: 0, other: 0 },
+        fixedUser: { pothole: 0, crack: 0, other: 0 },
+        fixedDetected: { pothole: 0, crack: 0, other: 0 },
+      });
+
+      function normalizeType(raw) {
+        const s = (raw || '').toString().trim().toLowerCase();
+        if (s.includes('pothole')) return 'pothole';
+        if (s.includes('roadcrack')) return 'crack';
+        if (s.includes('road') && s.includes('crack')) return 'crack';
+        if (s.includes('crack')) return 'crack';
+        return 'other';
+      }
+
+      function detectionTypeFromMeta(meta) {
+        const status = (meta && meta.reviewStatus) ? String(meta.reviewStatus).trim().toLowerCase() : '';
+        if (status === 'pending') return 'unsure';
+        return normalizeType(meta && meta.label);
+      }
+
+      const activeFilters = {
+        types: new Set(['pothole', 'crack']),
+        sources: new Set(['survey', 'report']),
+      };
+      if (IS_ADMIN) {
+        activeFilters.types.add('unsure');
+      }
+
+      function passesFilters(source, type) {
+        if (!activeFilters.sources.has(source)) return false;
+        if (!activeFilters.types.has(type)) return false;
+        return true;
+      }
+
+      function applyFilters() {
+        for (const marker of markerById.values()) {
+          const type = detectionTypeFromMeta(marker._meta);
+          const show = passesFilters('survey', type);
+          if (show) {
+            if (!markersLayer.hasLayer(marker)) markersLayer.addLayer(marker);
+          } else {
+            if (markersLayer.hasLayer(marker)) markersLayer.removeLayer(marker);
+          }
+        }
+        for (const marker of reportMarkerById.values()) {
+          const type = normalizeType(marker._meta && marker._meta.type);
+          const show = passesFilters('report', type);
+          if (show) {
+            if (!reportMarkersLayer.hasLayer(marker)) reportMarkersLayer.addLayer(marker);
+          } else {
+            if (reportMarkersLayer.hasLayer(marker)) reportMarkersLayer.removeLayer(marker);
+          }
+        }
+        updateCountsIfNeeded(true);
+      }
+
+      function pointInRing(point, ring) {
+        let inside = false;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+          const xi = ring[i][0];
+          const yi = ring[i][1];
+          const xj = ring[j][0];
+          const yj = ring[j][1];
+          const intersect = ((yi > point.lat) !== (yj > point.lat)) &&
+            (point.lng < (xj - xi) * (point.lat - yi) / (yj - yi + 0.0) + xi);
+          if (intersect) inside = !inside;
+        }
+        return inside;
+      }
+
+      function pointInPolygon(point, coords) {
+        if (!coords || !coords.length) return false;
+        const outer = coords[0];
+        if (!pointInRing(point, outer)) return false;
+        for (let i = 1; i < coords.length; i++) {
+          if (pointInRing(point, coords[i])) return false;
+        }
+        return true;
+      }
+
+      function pointInGeometry(point, geometry) {
+        if (!geometry) return false;
+        if (geometry.type === 'Polygon') {
+          return pointInPolygon(point, geometry.coordinates || []);
+        }
+        if (geometry.type === 'MultiPolygon') {
+          const polys = geometry.coordinates || [];
+          for (const poly of polys) {
+            if (pointInPolygon(point, poly)) return true;
+          }
+          return false;
+        }
+        return false;
+      }
+
+      function areaKey(feature) {
+        const props = feature && feature.properties ? feature.properties : {};
+        const id = feature && feature.id ? String(feature.id) : '';
+        const name = provinceName(props);
+        const type = feature && feature.geometry ? feature.geometry.type : '';
+        return [id, name, type].join('|');
+      }
+
+      function updateCountsIfNeeded(force) {
+        if (!selectedArea || !selectedArea.feature) return;
+        const key = selectedArea.key;
+        if (!force &&
+          lastComputed.key === key &&
+          lastComputed.detectionVersion === detectionVersion &&
+          lastComputed.reportVersion === reportVersion) {
+          return;
+        }
+        const counts = {
+          areaName: selectedArea.name,
+          user: { pothole: 0, crack: 0, other: 0 },
+          detected: { pothole: 0, crack: 0, other: 0 },
+          fixedUser: { pothole: 0, crack: 0, other: 0 },
+          fixedDetected: { pothole: 0, crack: 0, other: 0 },
+        };
+        const geometry = selectedArea.feature.geometry;
+        for (const marker of markerById.values()) {
+          const latlng = marker.getLatLng();
+          if (!selectedArea.layer.getBounds().contains(latlng)) continue;
+          if (!pointInGeometry({ lat: latlng.lat, lng: latlng.lng }, geometry)) continue;
+          const t = detectionTypeFromMeta(marker._meta);
+          if (!passesFilters('survey', t)) continue;
+          
+          if (marker._meta.isFixed) {
+            counts.fixedDetected[t] = (counts.fixedDetected[t] || 0) + 1;
+          } else {
+            counts.detected[t] += 1;
+          }
+        }
+        for (const marker of reportMarkerById.values()) {
+          const latlng = marker.getLatLng();
+          if (!selectedArea.layer.getBounds().contains(latlng)) continue;
+          if (!pointInGeometry({ lat: latlng.lat, lng: latlng.lng }, geometry)) continue;
+          const label = marker._meta && marker._meta.type;
+          const t = normalizeType(label);
+          if (!passesFilters('report', t)) continue;
+          
+          if (marker._meta.isFixed) {
+            counts.fixedUser[t] = (counts.fixedUser[t] || 0) + 1;
+          } else {
+            counts.user[t] += 1;
+          }
+        }
+        setSummaryCounts(counts);
+        lastComputed.key = key;
+        lastComputed.detectionVersion = detectionVersion;
+        lastComputed.reportVersion = reportVersion;
+      }
+
+      function setSelectedArea(feature, layer) {
+        // Reset previously selected area style
+        if (selectedArea && selectedArea.layer && provincesGeoJson) {
+           provincesGeoJson.resetStyle(selectedArea.layer);
+        }
+
+        if (!feature || !layer) {
+          selectedArea = null;
+          lastComputed.key = null;
+          setSummaryCounts({
+            areaName: 'No area selected',
+            user: { pothole: 0, crack: 0, other: 0 },
+            detected: { pothole: 0, crack: 0, other: 0 },
+            fixedUser: { pothole: 0, crack: 0, other: 0 },
+            fixedDetected: { pothole: 0, crack: 0, other: 0 },
+          });
+          return;
+        }
+        selectedArea = {
+          feature,
+          layer,
+          key: areaKey(feature),
+          name: provinceName(feature.properties),
+        };
+        
+        // Apply highlight style to selected area
+        layer.setStyle({
+          weight: 2.5,
+          color: '#1976d2',
+          fillColor: '#64b5f6',
+          fillOpacity: 0.25,
+        });
+        if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+          layer.bringToFront();
+        }
+
+        updateCountsIfNeeded(true);
+      }
+
+      function labelToIconUrl(labels, isFixed) {
+        const s = ((labels && labels[0]) || '').toString().trim().toLowerCase();
+        if (isFixed) {
+          if (s.includes('pothole')) return ICON_FIXED_POTHOLE_URL;
+          return ICON_FIXED_ROADCRACK_URL;
+        }
+        if (s.includes('pothole')) return ICON_POTHOLE_URL;
+        if (s.includes('roadcrack')) return ICON_ROADCRACK_URL;
+        if (s.includes('crack')) return ICON_ROADCRACK_URL;
+        return ICON_POTHOLE_URL;
+      }
+
+      function detectionLabel(it) {
+        const label = it.final_class || it.detected_class || it.label || (it.labels && it.labels[0]) || '';
+        return String(label || '').trim();
+      }
+
+      function detectionIsPending(it) {
+        return String(it.review_status || '').toLowerCase() === 'pending';
+      }
+
+      function detectionIconUrl(it) {
+        if (detectionIsPending(it)) {
+          return ICON_UNSURE_URL;
+        }
+        return labelToIconUrl([detectionLabel(it)], it.is_fixed);
+      }
+
+      function detectionSnapshotUrl(it) {
+        const path = String(it.snapshot_image_path || '').trim();
+        if (!path) return '';
+        if (path.startsWith('http://') || path.startsWith('https://')) return path;
+        if (path.startsWith('/static/')) return path;
+        return `/static/${path}`;
+      }
+
+      function compactTs(iso) {
+        if (!iso) return '—';
+        return String(iso).slice(0, 16);
+      }
+
+      function detectionTooltipHtml(it) {
+        const label = detectionLabel(it) || 'Detection';
+        const confVal = Number(it.confidence_score ?? it.conf);
+        const confText = Number.isFinite(confVal) ? confVal.toFixed(2) : 'N/A';
+        const ts = compactTs(it.ts_iso || '');
+        const statusTs = compactTs(it.status_updated_at_iso || '');
+        const imgUrl = detectionSnapshotUrl(it);
+        const imgHtml = imgUrl ? `<img src="${imgUrl}" alt="Detection snapshot" style="width:160px;height:auto;border-radius:6px;display:block;margin:6px 0 4px 0;border:1px solid #e2e8f0;" />` : '';
+        return `
+          <div style="min-width:180px">
+            <strong>${label}</strong><br/>
+            ${imgHtml}
+            <div style="font-size:12px; color:#666">Confidence: ${confText}</div>
+            <div style="font-size:12px; color:#666">Reported / Detected: ${ts}</div>
+            <div style="font-size:12px; color:#666">Last Status Update: ${statusTs}</div>
+          </div>
+        `;
+      }
+
+      function detectionPopupHtml(it) {
+        const label = detectionLabel(it) || 'Detection';
+        const confVal = Number(it.confidence_score ?? it.conf);
+        const confText = Number.isFinite(confVal) ? confVal.toFixed(2) : 'N/A';
+        const ts = compactTs(it.ts_iso || '');
+        const statusTs = compactTs(it.status_updated_at_iso || '');
+        const imgUrl = detectionSnapshotUrl(it);
+        const imgHtml = imgUrl ? `<div style="margin:6px 0 6px 0"><img src="${imgUrl}" alt="Detection snapshot" style="width:180px;height:auto;border-radius:8px;display:block;border:1px solid #e2e8f0;" /></div>` : '';
+        const pending = detectionIsPending(it);
+        const actions = (IS_ADMIN && pending) ? `
+          <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
+            <button onclick="reviewDetection(${it.id}, 'confirm_pothole')" class="reaction-btn" title="Confirm pothole">Confirm pothole</button>
+            <button onclick="reviewDetection(${it.id}, 'confirm_roadcrack')" class="reaction-btn" title="Confirm road crack">Confirm road crack</button>
+            <button onclick="reviewDetection(${it.id}, 'reject')" class="reaction-btn" title="Reject detection">Reject</button>
+          </div>
+        ` : '';
+        return `
+          <div style="min-width:180px">
+            <strong>${label}</strong><br/>
+            <span style="font-size:12px; color:#666">${Number(it.lat).toFixed(6)}, ${Number(it.lon).toFixed(6)}</span>
+            ${imgHtml}
+            <div style="font-size:12px; color:#666">Confidence: ${confText}</div>
+            <div style="font-size:12px; color:#666">Reported / Detected: ${ts}</div>
+            <div style="font-size:12px; color:#666">Last Status Update: ${statusTs}</div>
+            ${actions}
+          </div>
+        `;
+      }
+
+      function makeIcon(iconUrl) {
+        return L.icon({ iconUrl, iconSize: [32,32], iconAnchor: [16,28], popupAnchor: [0,-24] });
+      }
+
+      function attachMarkerHoverScale(marker) {
+        function setScaled(el, scaled) {
+          if (!el) return;
+          const key = '__baseTransform';
+          if (scaled) {
+            const cur = (el.style.transform || '').toString();
+            const baseNow = cur.replace(/\s*scale\([^)]*\)\s*$/i, '').trim();
+            el.dataset[key] = baseNow;
+            el.style.transform = `${baseNow} scale(1.8)`;
+          } else {
+            const base = (el.dataset[key] || '').toString();
+            el.style.transform = base;
+          }
+          el.style.zIndex = scaled ? '9999' : '';
+        }
+
+        marker.on('mouseover', () => {
+          setScaled(marker.getElement && marker.getElement(), true);
+          try { marker.openTooltip(); } catch (e) {}
+        });
+        marker.on('mouseout', () => {
+          setScaled(marker.getElement && marker.getElement(), false);
+          try { marker.closeTooltip(); } catch (e) {}
+        });
+        marker.on('focus', () => {
+          setScaled(marker.getElement && marker.getElement(), true);
+          try { marker.openTooltip(); } catch (e) {}
+        });
+        marker.on('blur', () => {
+          setScaled(marker.getElement && marker.getElement(), false);
+          try { marker.closeTooltip(); } catch (e) {}
+        });
+      }
+
+      async function reviewDetection(id, action) {
+        if (!IS_ADMIN) return;
+        try {
+          const res = await fetch(`/detections/${id}/review`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action })
+          });
+          const json = await res.json();
+          if (!res.ok || !json.success) {
+            alert(json.message || 'Unable to update detection');
+            return;
+          }
+          fetchDetections();
+        } catch (e) {
+          alert('Unable to update detection');
+        }
+      }
+
+      function updateDetectionMarker(marker, it) {
+        const label = detectionLabel(it);
+        const reviewStatus = String(it.review_status || '').trim().toLowerCase();
+        marker._meta = { label: label, id: it.id, source: 'survey', isFixed: it.is_fixed, reviewStatus: reviewStatus, ts: it.ts };
+        marker.setIcon(makeIcon(detectionIconUrl(it)));
+        marker.bindTooltip(detectionTooltipHtml(it), { direction: 'top', offset: [0, -28], opacity: 0.95, sticky: false });
+        marker.bindPopup(detectionPopupHtml(it));
+      }
+
+      async function fetchDetections() {
+        try {
+          const res = await fetch(IS_ADMIN ? '/detections?include_pending=1' : '/detections');
+          const data = await res.json();
+          const items = data.items || [];
+          const currentIds = new Set();
+          for (const it of items) {
+            currentIds.add(it.id);
+            if (markerById.has(it.id)) {
+               const m = markerById.get(it.id);
+               updateDetectionMarker(m, it);
+               continue;
+            }
+            const lat = Number(it.lat);
+            const lon = Number(it.lon);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue; // require valid coords
+            const marker = L.marker([lat, lon], { icon: makeIcon(detectionIconUrl(it)) });
+            updateDetectionMarker(marker, it);
+            attachMarkerHoverScale(marker);
+            if (passesFilters('survey', normalizeType(marker._meta.label))) {
+              marker.addTo(markersLayer);
+            }
+            markerById.set(it.id, marker);
+          }
+          // Remove stale markers (e.g. fixed > 30 days and no longer returned)
+          for (const [id, m] of markerById.entries()) {
+              if (!currentIds.has(id)) {
+                  markersLayer.removeLayer(m);
+                  markerById.delete(id);
+              }
+          }
+          
+          if (items.length) {
+            detectionVersion += 1;
+            applyFilters();
+          }
+          if (firstFit && markerById.size > 0) {
+            const latlngs = Array.from(markerById.values()).map(m => m.getLatLng());
+            map.fitBounds(L.latLngBounds(latlngs).pad(0.2));
+            firstFit = false;
+          }
+        } catch (e) {
+          // ignore fetch errors
+        }
+      }
+
+      fetchDetections();
+      setInterval(fetchDetections, 2000);
+      
+      // --- Administrative zones (provinces) GeoJSON with hover highlight + click popup ---
+      const AREA_URLS = {
+        municipalities: "{{ url_for('static', filename='data/municipalities.json') }}",
+        provinces: "{{ url_for('static', filename='data/provinces.json') }}",
+        regions: "{{ url_for('static', filename='data/regions.json') }}",
+      };
+      const provincesStyle = {
+        color: '#555',
+        weight: 1,
+        fillColor: '#88c',
+        fillOpacity: 0.1,
+      };
+
+      let provincesGeoJson;
+
+      const REGION_NAME_BY_ID = {
+        PH00: 'National Capital Region',
+        PH01: 'Ilocos',
+        PH02: 'Cagayan Valley',
+        PH03: 'Central Luzon',
+        PH05: 'Bicol',
+        PH06: 'Western Visayas',
+        PH07: 'Central Visayas',
+        PH08: 'Eastern Visayas',
+        PH09: 'Zamboanga Peninsula',
+        PH10: 'Northern Mindanao',
+        PH11: 'Davao',
+        PH12: 'Soccsksargen',
+        PH13: 'Caraga',
+        PH14: 'Autonomous Region in Muslim Mindanao',
+        PH15: 'Cordillera Administrative Region',
+        PH40: 'Calabarzon',
+        PH41: 'Mimaropa',
+      };
+
+      function provinceName(props) {
+        const id = (props && (props.id || props.ID || props.region_id)) ? String(props.id || props.ID || props.region_id).trim() : '';
+        if (id && REGION_NAME_BY_ID[id]) return REGION_NAME_BY_ID[id];
+        return (props && (props.name || props.NAME_2 || props.NAME_1 || props.PROVINCE || props.NAME || props.COUNTRY)) || 'Province';
+      }
+
+      function onEachProvince(feature, layer) {
+        const name = provinceName(feature.properties);
+        const tooltipOptions = { sticky: true, opacity: 0.8 };
+
+        layer.on({
+          mouseover: (e) => {
+            // Do not apply hover style if this area is already selected
+            if (selectedArea && selectedArea.layer === e.target) return;
+
+            const l = e.target;
+            l.setStyle({
+              weight: 2.5,
+              color: '#1976d2',
+              fillColor: '#64b5f6',
+              fillOpacity: 0.25,
+            });
+            if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+              l.bringToFront();
+            }
+          },
+          mouseout: (e) => {
+            // Do not reset style if this area is currently selected
+            if (selectedArea && selectedArea.layer === e.target) return;
+
+            if (provincesGeoJson) provincesGeoJson.resetStyle(e.target);
+          },
+          click: (e) => {
+            // Allow map click propagation if special modes are active
+            if (typeof brushEnabled !== 'undefined' && brushEnabled) {
+                return;
+            }
+
+            try { if (e && e.originalEvent) L.DomEvent.stopPropagation(e); } catch (err) {}
+            try { layer.closeTooltip(); } catch (err) {}
+            // Open report popup instead of province name
+            openReportPickPopup(e.latlng);
+            setSelectedArea(feature, layer);
+          },
+          popupopen: () => {
+            layer.unbindTooltip();
+          },
+          popupclose: () => {
+            layer.bindTooltip(name, tooltipOptions);
+          }
+        });
+        // Optional quick tooltip for context
+        layer.bindTooltip(name, tooltipOptions);
+      }
+
+      async function loadProvinces(url) {
+        try {
+          setSelectedArea(null, null);
+          if (provincesGeoJson) {
+            try { map.removeLayer(provincesGeoJson); } catch (e) {}
+            provincesGeoJson = undefined;
+          }
+          const res = await fetch(url);
+          if (!res.ok) return;
+          const gj = await res.json();
+          provincesGeoJson = L.geoJSON(gj, {
+            style: provincesStyle,
+            onEachFeature: onEachProvince,
+            smoothFactor: 0,
+          }).addTo(map);
+        } catch (e) {
+          // ignore errors loading provinces
+        }
+      }
+
+      const areaSelect = document.getElementById('areaSelect');
+      function currentAreaUrl() {
+        const key = (areaSelect && areaSelect.value) ? areaSelect.value : 'municipalities';
+        return AREA_URLS[key] || AREA_URLS.municipalities;
+      }
+
+      if (areaSelect) {
+        areaSelect.addEventListener('change', () => {
+          loadProvinces(currentAreaUrl());
+        });
+      }
+
+      const typePills = document.querySelectorAll('.pill[data-type]');
+      const sourcePills = document.querySelectorAll('.pill[data-source]');
+      const resetFiltersBtn = document.getElementById('resetFilters');
+
+      function syncFiltersFromUi() {
+        activeFilters.types.clear();
+        activeFilters.sources.clear();
+        typePills.forEach((btn) => {
+          if (btn.classList.contains('active')) {
+            const v = btn.getAttribute('data-type');
+            if (v) activeFilters.types.add(v);
+          }
+        });
+        sourcePills.forEach((btn) => {
+          if (btn.classList.contains('active')) {
+            const v = btn.getAttribute('data-source');
+            if (v) activeFilters.sources.add(v);
+          }
+        });
+        applyFilters();
+      }
+
+      typePills.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          btn.classList.toggle('active');
+          syncFiltersFromUi();
+        });
+      });
+
+      sourcePills.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          btn.classList.toggle('active');
+          syncFiltersFromUi();
+        });
+      });
+
+      if (resetFiltersBtn) {
+        resetFiltersBtn.addEventListener('click', () => {
+          typePills.forEach((btn) => btn.classList.add('active'));
+          sourcePills.forEach((btn) => btn.classList.add('active'));
+          syncFiltersFromUi();
+        });
+      }
+
+      loadProvinces(currentAreaUrl());
+
+      let reportPickMarker;
+
+      const REPORT_PIN_ICON_URL = (function () {
+        const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
+  <path d="M18 1c-6.3 0-11.4 5.1-11.4 11.4C6.6 22.6 18 35 18 35s11.4-12.4 11.4-22.6C29.4 6.1 24.3 1 18 1z" fill="#1976d2"/>
+  <circle cx="18" cy="12.4" r="5.2" fill="#ffffff"/>
+</svg>`;
+        return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+      })();
+
+      const FIXED_BRUSH_ICON_URL = (function () {
+        const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
+  <path d="M18 1c-6.3 0-11.4 5.1-11.4 11.4C6.6 22.6 18 35 18 35s11.4-12.4 11.4-22.6C29.4 6.1 24.3 1 18 1z" fill="#22c55e"/>
+  <circle cx="18" cy="12.4" r="5.2" fill="#ffffff"/>
+</svg>`;
+        return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+      })();
+
+      const REPORT_PIN_ICON = L.icon({
+        iconUrl: REPORT_PIN_ICON_URL,
+        iconSize: [32, 32],
+        iconAnchor: [16, 31],
+        popupAnchor: [0, -28],
+      });
+
+      const markFixedIconEl = document.getElementById('markFixedIcon');
+      if (markFixedIconEl) {
+        markFixedIconEl.src = FIXED_BRUSH_ICON_URL;
+      }
+
+      function reportLinkFor(lat, lng) {
+        const u = new URL(window.location.href);
+        u.pathname = '/reports';
+        u.search = '';
+        u.searchParams.set('lat', String(lat));
+        u.searchParams.set('lng', String(lng));
+        return u.toString();
+      }
+
+      function openReportPickPopup(latlng) {
+        const lat = Number(latlng.lat);
+        const lng = Number(latlng.lng);
+        const html = `
+          <div style="min-width: 180px;">
+            <div><b>Latitude:</b> ${lat.toFixed(6)}</div>
+            <div><b>Longitude:</b> ${lng.toFixed(6)}</div>
+            <div style="margin-top: 10px;">
+              <a class="btn primary" href="${reportLinkFor(lat.toFixed(6), lng.toFixed(6))}" style="text-decoration: none; display: inline-block;">Submit Report</a>
+            </div>
+          </div>
+        `;
+        if (!reportPickMarker) {
+          reportPickMarker = L.marker([lat, lng], { draggable: false, icon: REPORT_PIN_ICON });
+          reportPickMarker.addTo(map);
+          reportPickMarker.on('popupclose', () => {
+            try { map.removeLayer(reportPickMarker); } catch (e) {}
+            reportPickMarker = undefined;
+          });
+        } else {
+          reportPickMarker.setLatLng([lat, lng]);
+        }
+        reportPickMarker.bindPopup(html, { closeButton: true }).openPopup();
+      }
+
+      function latlngFromClientPoint(clientX, clientY) {
+        try {
+          const container = map.getContainer();
+          const rect = container.getBoundingClientRect();
+          const x = clientX - rect.left;
+          const y = clientY - rect.top;
+          return map.containerPointToLatLng([x, y]);
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function reportTypeToIconUrl(t, isFixed) {
+        const s = (t || '').toString().trim().toLowerCase();
+        if (isFixed) {
+          if (s.includes('pothole')) return ICON_FIXED_POTHOLE_URL;
+          return ICON_FIXED_ROADCRACK_URL;
+        }
+        if (s.includes('pothole')) return ICON_REPORT_POTHOLE_URL;
+        if (s.includes('road') && s.includes('crack')) return ICON_REPORT_ROADCRACK_URL;
+        if (s.includes('crack')) return ICON_REPORT_ROADCRACK_URL;
+        return ICON_REPORT_POTHOLE_URL;
+      }
+
+      function makeReportIcon(iconUrl) {
+        return L.icon({ iconUrl, iconSize: [32, 32], iconAnchor: [16, 31], popupAnchor: [0, -28] });
+      }
+
+      // --- Reaction Logic ---
+      async function reactToReport(id, type) {
+          try {
+              const res = await fetch(`/reports/${id}/react`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ reaction: type })
+              });
+              const json = await res.json();
+              if (!res.ok) {
+                  alert(json.error || 'Error reacting to report');
+                  return;
+              }
+              // Refresh reports to update UI
+              fetchReports();
+          } catch (e) {
+              alert('Network error');
+          }
+      }
+
+      window.reactToReport = reactToReport; // Expose to global scope for popup onclick
+
+      async function flagAsFalse(id) {
+          if (!confirm('Are you sure you want to flag this report as false? It will be removed and the user will be notified.')) return;
+          try {
+              const res = await fetch(`/reports/${id}/flag-false`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' }
+              });
+              const json = await res.json();
+              if (json.success) {
+                  fetchReports(); // Refresh map
+              } else {
+                  alert(json.message || 'Error flagging report');
+              }
+          } catch (e) {
+              alert('Network error');
+          }
+      }
+      window.flagAsFalse = flagAsFalse;
+
+      async function fetchReports() {
+        try {
+          const res = await fetch('/reports-data');
+          if (!res.ok) return;
+          const data = await res.json();
+          const items = data.items || [];
+          const currentIds = new Set();
+          for (const it of items) {
+            currentIds.add(it.id);
+            if (reportMarkerById.has(it.id)) {
+               // Update icon if status changed
+               const m = reportMarkerById.get(it.id);
+               if (m._meta.isFixed !== it.is_fixed) {
+                   m._meta.isFixed = it.is_fixed;
+                   m.setIcon(makeReportIcon(reportTypeToIconUrl(it.type, it.is_fixed)));
+               }
+               // Update popup content with new reaction counts
+               updateReportPopup(m, it);
+               continue;
+            }
+            const lat = Number(it.lat);
+            const lon = Number(it.lon);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+            const iconUrl = reportTypeToIconUrl(it.type, it.is_fixed);
+            const marker = L.marker([lat, lon], { icon: makeReportIcon(iconUrl) });
+            marker._meta = { type: it.type || '', id: it.id, source: 'report', isFixed: it.is_fixed, ts: it.created_at };
+            attachMarkerHoverScale(marker);
+            
+            updateReportPopup(marker, it);
+            
+            if (passesFilters('report', normalizeType(marker._meta.type), marker._meta.ts)) {
+              marker.addTo(reportMarkersLayer);
+            }
+            reportMarkerById.set(it.id, marker);
+          }
+          // Remove stale markers
+          for (const [id, m] of reportMarkerById.entries()) {
+              if (!currentIds.has(id)) {
+                  reportMarkersLayer.removeLayer(m);
+                  reportMarkerById.delete(id);
+              }
+          }
+          if (items.length) {
+            reportVersion += 1;
+            applyFilters();
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      function updateReportPopup(marker, it) {
+          const tt = `Report: ${(it.type || '').toString()}`.trim();
+          marker.bindTooltip(tt || 'Report', { direction: 'top', offset: [0, -28], opacity: 0.95, sticky: false });
+          
+          const photo = it.photo ? `<div style="margin-bottom:8px"><a href="/static/${String(it.photo)}" target="_blank" rel="noopener">View photo</a></div>` : '';
+          const reportedTs = compactTs(it.created_at_iso || '');
+          const statusTs = compactTs(it.status_updated_at_iso || '');
+          
+          const upClass = it.user_reaction === 'up' ? 'active' : '';
+          const downClass = it.user_reaction === 'down' ? 'active' : '';
+          
+          // Reaction buttons HTML
+          const reactionsHtml = it.is_fixed ? '' : `
+            <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
+                <button onclick="reactToReport(${it.id}, 'up')" class="reaction-btn ${upClass}" title="Fixed (Thumbs Up)">
+                    👍 ${it.thumbs_up || 0}
+                </button>
+                <button onclick="reactToReport(${it.id}, 'down')" class="reaction-btn ${downClass}" title="Worsened (Thumbs Down)">
+                    👎 ${it.thumbs_down || 0}
+                </button>
+                ${IS_ADMIN ? `<button onclick="flagAsFalse(${it.id})" class="reaction-btn" style="color:#dc2626;border-color:#fecaca;" title="Flag as False Report">🚩</button>` : ''}
+            </div>
+          `;
+
+          marker.bindPopup(`
+            <div style="min-width:140px">
+                <strong>${tt}</strong><br/>
+                <span style="font-size:12px; color:#666">${Number(it.lat).toFixed(6)}, ${Number(it.lon).toFixed(6)}</span>
+                ${photo}
+                <div style="font-size:12px; color:#666">Reported / Detected: ${reportedTs}</div>
+                <div style="font-size:12px; color:#666">Last Status Update: ${statusTs}</div>
+                ${reactionsHtml}
+            </div>
+          `);
+      }
+
+      // --- Mark as Fixed Brush Logic ---
+      const markFixedBtn = document.getElementById('markFixedBtn');
+      let brushEnabled = false;
+      let brushCircle;
+      const BRUSH_RADIUS_METERS = 25; // Configurable brush size
+
+      if (markFixedBtn) {
+         markFixedBtn.addEventListener('click', () => {
+           brushEnabled = !brushEnabled;
+           if (brushEnabled) {
+              markFixedBtn.style.backgroundColor = '#dcfce7'; // active green tint
+              markFixedBtn.style.borderColor = '#22c55e';
+              map.getContainer().style.cursor = 'crosshair';
+              map.dragging.disable(); // Disable drag to prevent panning on click
+              
+              // Disable select location mode if active
+              if (typeof selectLocationMode !== 'undefined' && selectLocationMode) {
+                  const btn = document.getElementById('reportPin');
+                  if (btn) btn.click();
+              }
+           } else {
+              markFixedBtn.style.backgroundColor = '';
+              markFixedBtn.style.borderColor = '';
+              map.getContainer().style.cursor = '';
+              map.dragging.enable(); // Re-enable drag
+              if (brushCircle) {
+                map.removeLayer(brushCircle);
+                brushCircle = undefined;
+              }
+           }
+         });
+
+        map.on('mousemove', (e) => {
+          if (!brushEnabled) return;
+          if (!brushCircle) {
+            brushCircle = L.circle(e.latlng, {
+              radius: BRUSH_RADIUS_METERS,
+              color: '#22c55e',
+              fillColor: '#22c55e',
+              fillOpacity: 0.3,
+              weight: 2,
+              interactive: false
+            }).addTo(map);
+          } else {
+            brushCircle.setLatLng(e.latlng);
+          }
+        });
+
+        map.on('click', async (e) => {
+          if (!brushEnabled) return;
+          
+          // Identify markers inside brush
+          const selected = [];
+          const center = e.latlng;
+          
+          // Check detections
+          for (const marker of markerById.values()) {
+            if (center.distanceTo(marker.getLatLng()) <= BRUSH_RADIUS_METERS) {
+               // Only select if not already fixed
+               if (!marker._meta.isFixed) {
+                 selected.push({ type: 'detection', id: marker._meta.id });
+               }
+            }
+          }
+          // Check reports
+          for (const marker of reportMarkerById.values()) {
+            if (center.distanceTo(marker.getLatLng()) <= BRUSH_RADIUS_METERS) {
+               if (!marker._meta.isFixed) {
+                 selected.push({ type: 'report', id: marker._meta.id });
+               }
+            }
+          }
+          
+          if (selected.length === 0) return;
+          
+          if (!confirm(`Mark ${selected.length} defects as fixed?`)) return;
+          
+          try {
+             const res = await fetch('/defects/mark-fixed', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ ids: selected })
+             });
+             const json = await res.json();
+             if (json.success) {
+               // Trigger refresh immediately
+               fetchDetections();
+               fetchReports();
+             } else {
+               alert('Error: ' + (json.message || 'Unknown error'));
+             }
+          } catch (err) {
+             alert('Error updating defects');
+          }
+        });
+      }
+
+      // Clear selection helper
+      window.clearSelection = function() {
+        setSelectedArea(null, null);
+      };
+
+      map.on('click', (e) => {
+        // If brush is enabled (admin feature), do not clear selection
+        if (typeof brushEnabled !== 'undefined' && brushEnabled) return;
+        
+        openReportPickPopup(e.latlng);
+        
+        // Clear area selection when clicking on empty map space
+        window.clearSelection();
+      });
+
+      fetchReports();
+      setInterval(fetchReports, 5000);
+    </script>
+    <script>
+      (function() {
+        // Notifications Logic
+        const notifBtn = document.getElementById('notifBtn');
+        const notifBadge = document.getElementById('notifBadge');
+        const notifPopup = document.getElementById('notifPopup');
+        const notifList = document.getElementById('notifList');
+        const markAllReadBtn = document.getElementById('markAllReadBtn');
+        let notifOpen = false;
+
+        async function fetchNotifications() {
+          try {
+            const res = await fetch('/notifications/unread');
+            const data = await res.json();
+            const items = data.items || [];
+            
+            if (data.count > 0) {
+              notifBadge.style.display = 'block';
+              markAllReadBtn.style.display = 'block';
+            } else {
+              notifBadge.style.display = 'none';
+              markAllReadBtn.style.display = 'none';
+            }
+            
+            if (items.length === 0) {
+              notifList.innerHTML = '<div style="padding:20px; text-align:center; color:#64748b; font-size:13px;">No new notifications</div>';
+            } else {
+              notifList.innerHTML = items.map(n => `
+                <div style="padding:12px 16px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.2s;" 
+                     onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'"
+                     onclick="handleNotifClick(${n.id}, '${n.link || ''}')">
+                  <div style="font-weight:600; font-size:13px; color:#0f172a; margin-bottom:4px;">${n.title}</div>
+                  <div style="font-size:12px; color:#475569; line-height:1.4;">${n.message}</div>
+                  <div style="font-size:11px; color:#94a3b8; margin-top:6px;">${n.created_at_iso}</div>
+                </div>
+              `).join('');
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }
+
+        window.handleNotifClick = async function(id, link) {
+          try {
+            await fetch(`/notifications/mark-read/${id}`, { method: 'POST' });
+            if (link) window.location.href = link;
+            else fetchNotifications();
+          } catch (e) {}
+        };
+
+        markAllReadBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          try {
+            await fetch('/notifications/mark-all-read', { method: 'POST' });
+            fetchNotifications();
+          } catch (e) {}
+        });
+
+        notifBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          notifOpen = !notifOpen;
+          notifPopup.style.display = notifOpen ? 'block' : 'none';
+          if (notifOpen) fetchNotifications();
+        });
+
+        document.addEventListener('click', (e) => {
+          if (notifOpen && !notifPopup.contains(e.target) && !notifBtn.contains(e.target)) {
+            notifOpen = false;
+            notifPopup.style.display = 'none';
+          }
+        });
+
+        // Poll notifications every 30s
+        fetchNotifications();
+        setInterval(fetchNotifications, 30000);
+      })();
+    </script>
+  </body>
+</html>

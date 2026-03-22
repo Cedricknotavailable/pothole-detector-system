@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Submit Report - Surveyor.AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/users.css') }}" />
+    <style>
+      .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .full-width { grid-column: 1 / -1; }
+      .upload-box {
+        border: 2px dashed var(--line);
+        border-radius: 10px;
+        padding: 24px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: #f8fafc;
+      }
+      .upload-box:hover { border-color: var(--accent); background: #eff6ff; }
+      .upload-box.has-file { border-style: solid; border-color: #cbd5e1; background: #fff; padding: 12px; }
+      .upload-icon { font-size: 24px; color: #94a3b8; margin-bottom: 8px; }
+      .upload-text { font-size: 13px; font-weight: 600; color: #64748b; }
+      .preview-img { max-width: 100%; max-height: 200px; border-radius: 8px; display: none; margin: 0 auto; }
+      
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+        border: 1px solid var(--accent);
+      }
+      .btn-primary:hover {
+        background: #2563eb; /* Darker blue */
+        border-color: #2563eb;
+      }
+      
+      .location-group { position: relative; }
+      .location-btn {
+        position: absolute; right: 8px; top: 32px;
+        background: transparent; border: none;
+        color: var(--accent); font-weight: 700; font-size: 12px;
+        cursor: pointer; padding: 4px 8px;
+        display: flex; align-items: center; gap: 4px;
+      }
+      .location-btn:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">SURVEYOR.AI</div>
+        <div style="margin-left:auto; margin-right:12px; position:relative;">
+          <button id="notifBtn" style="background:none; border:none; width:40px; height:40px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; position:relative;">
+            <img src="{{ url_for('static', filename='icons/bell.svg') }}" width="24" height="24" alt="Notifications" style="filter: brightness(0) invert(1);" />
+            <div id="notifBadge" style="position:absolute; top:6px; right:6px; width:10px; height:10px; background:#ef4444; border:2px solid #556276; border-radius:50%; display:none;"></div>
+          </button>
+          <div id="notifPopup" style="display:none; position:absolute; right:0; top:50px; width:320px; background:#fff; border:1px solid #cbd5e1; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:1000; overflow:hidden;">
+            <div style="padding:12px 16px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+              <div style="font-weight:700; color:#0f172a; font-size:14px;">Notifications</div>
+              <button id="markAllReadBtn" style="background:none; border:none; color:#3b82f6; font-size:12px; font-weight:600; cursor:pointer; display:none;">Mark all read</button>
+            </div>
+            <div id="notifList" style="max-height:300px; overflow-y:auto;">
+              <div style="padding:20px; text-align:center; color:#64748b; font-size:13px;">No new notifications</div>
+            </div>
+          </div>
+        </div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <nav class="nav">
+          {% if is_admin %}
+            <a href="/index">Survey</a>
+            <a href="/map">Map</a>
+            <a href="/users">User management</a>
+            <a class="active" href="/reports">Submit report</a>
+            <a href="/settings">Settings</a>
+            <a href="#">Analytics</a>
+            <a href="/logout">Log Out</a>
+          {% else %}
+            <a href="/map">Map</a>
+            <a class="active" href="/reports">Submit report</a>
+            <a href="/my-reports">My reports</a>
+            <a href="/logout">Log Out</a>
+          {% endif %}
+        </nav>
+      </aside>
+
+      <main class="main">
+        <div class="page" style="max-width: 600px;">
+          <div class="page-header">
+            <div>
+              <div class="title">Submit Report</div>
+              <div class="subtitle">Report a road defect or obstruction</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div style="padding: 24px;">
+              <form method="post" action="{{ url_for('reports_page') }}" enctype="multipart/form-data" id="reportForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                
+                <div class="form-grid">
+                  <!-- Type Selection -->
+                  <div class="control full-width">
+                    <label class="control-label" for="obstruction_type">Type of Obstruction</label>
+                    <select id="obstruction_type" class="control-input" name="obstruction_type" required>
+                      <option value="" disabled {% if not values.obstruction_type %}selected{% endif %}>Select type...</option>
+                      <option value="Pothole" {% if values.obstruction_type == 'Pothole' %}selected{% endif %}>Pothole</option>
+                      <option value="Road Crack" {% if values.obstruction_type == 'Road Crack' %}selected{% endif %}>Road Crack</option>
+                      <option value="Other" {% if values.obstruction_type == 'Other' %}selected{% endif %}>Other</option>
+                    </select>
+                  </div>
+
+                  <!-- Location Inputs -->
+                  <div class="control location-group">
+                    <label class="control-label" for="latitude">Latitude</label>
+                    <input id="latitude" class="control-input" type="number" step="any" name="latitude" value="{{ values.latitude or '' }}" placeholder="0.000000" required />
+                  </div>
+
+                  <div class="control">
+                    <label class="control-label" for="longitude">Longitude</label>
+                    <input id="longitude" class="control-input" type="number" step="any" name="longitude" value="{{ values.longitude or '' }}" placeholder="0.000000" required />
+                  </div>
+
+                  <div class="full-width" style="display:flex; justify-content:flex-end;">
+                    <button type="button" id="getLocationBtn" style="color:var(--accent); background:none; border:none; font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-8-10.5-8-11a8 8 0 0 1 16 0c0 .5-8 11-8 11z"/><circle cx="12" cy="11" r="3"/></svg>
+                      Get Current Location
+                    </button>
+                  </div>
+
+                  <!-- Photo Upload -->
+                  <div class="control full-width">
+                    <label class="control-label">Evidence Photo (Optional)</label>
+                    <label class="upload-box" id="uploadBox" for="photo">
+                      <input id="photo" type="file" name="photo" accept="image/png,image/jpeg" style="display:none;" />
+                      <div id="uploadPlaceholder">
+                        <div class="upload-icon">📷</div>
+                        <div class="upload-text">Click to upload photo</div>
+                        <div style="font-size:11px; color:#94a3b8; margin-top:4px;">JPG or PNG</div>
+                      </div>
+                      <img id="photoPreview" class="preview-img" alt="Preview" />
+                    </label>
+                  </div>
+
+                  <!-- Submit Action -->
+                  <div class="full-width" style="margin-top: 8px;">
+                    <button class="btn btn-primary" type="submit" style="width: 100%; justify-content: center; height: 44px; font-size: 15px;">
+                      Submit Report
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Messages -->
+                {% if success %}
+                  <div style="margin-top: 16px; padding: 12px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 8px; font-weight: 600; font-size: 14px; text-align: center;">
+                    Report submitted successfully!
+                  </div>
+                {% endif %}
+
+                {% if errors and errors|length > 0 %}
+                  <div style="margin-top: 16px; padding: 12px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 8px; font-weight: 600; font-size: 14px;">
+                    {% for e in errors %}
+                      <div>{{ e }}</div>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+
+                <div id="clientError" style="margin-top: 16px; padding: 12px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 8px; font-weight: 600; font-size: 14px; display: none;"></div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      (function() {
+        // Notifications Logic
+        const notifBtn = document.getElementById('notifBtn');
+        const notifBadge = document.getElementById('notifBadge');
+        const notifPopup = document.getElementById('notifPopup');
+        const notifList = document.getElementById('notifList');
+        const markAllReadBtn = document.getElementById('markAllReadBtn');
+        let notifOpen = false;
+
+        async function fetchNotifications() {
+          try {
+            const res = await fetch('/notifications/unread');
+            const data = await res.json();
+            const items = data.items || [];
+            
+            if (data.count > 0) {
+              notifBadge.style.display = 'block';
+              markAllReadBtn.style.display = 'block';
+            } else {
+              notifBadge.style.display = 'none';
+              markAllReadBtn.style.display = 'none';
+            }
+            
+            if (items.length === 0) {
+              notifList.innerHTML = '<div style="padding:20px; text-align:center; color:#64748b; font-size:13px;">No new notifications</div>';
+            } else {
+              notifList.innerHTML = items.map(n => `
+                <div style="padding:12px 16px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.2s;" 
+                     onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'"
+                     onclick="handleNotifClick(${n.id}, '${n.link || ''}')">
+                  <div style="font-weight:600; font-size:13px; color:#0f172a; margin-bottom:4px;">${n.title}</div>
+                  <div style="font-size:12px; color:#475569; line-height:1.4;">${n.message}</div>
+                  <div style="font-size:11px; color:#94a3b8; margin-top:6px;">${n.created_at_iso}</div>
+                </div>
+              `).join('');
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }
+
+        window.handleNotifClick = async function(id, link) {
+          try {
+            await fetch(`/notifications/mark-read/${id}`, { method: 'POST' });
+            if (link) window.location.href = link;
+            else fetchNotifications();
+          } catch (e) {}
+        };
+
+        markAllReadBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          try {
+            await fetch('/notifications/mark-all-read', { method: 'POST' });
+            fetchNotifications();
+          } catch (e) {}
+        });
+
+        notifBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          notifOpen = !notifOpen;
+          notifPopup.style.display = notifOpen ? 'block' : 'none';
+          if (notifOpen) fetchNotifications();
+        });
+
+        document.addEventListener('click', (e) => {
+          if (notifOpen && !notifPopup.contains(e.target) && !notifBtn.contains(e.target)) {
+            notifOpen = false;
+            notifPopup.style.display = 'none';
+          }
+        });
+
+        // Poll notifications every 30s
+        fetchNotifications();
+        setInterval(fetchNotifications, 30000);
+      })();
+      
+      (function () {
+        const latEl = document.getElementById('latitude');
+        const lngEl = document.getElementById('longitude');
+        const photoEl = document.getElementById('photo');
+        const uploadBox = document.getElementById('uploadBox');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const previewImg = document.getElementById('photoPreview');
+        const form = document.getElementById('reportForm');
+        const errEl = document.getElementById('clientError');
+        const getLocationBtn = document.getElementById('getLocationBtn');
+
+        // Parse URL params
+        function getParam(name) {
+          try {
+            const u = new URL(window.location.href);
+            return u.searchParams.get(name);
+          } catch (e) {
+            return null;
+          }
+        }
+        function setIfEmpty(input, val) {
+          if (!input) return;
+          const cur = (input.value || '').trim();
+          if (cur) return;
+          if (val === null || val === undefined) return;
+          input.value = String(val);
+        }
+        const qLat = getParam('lat');
+        const qLng = getParam('lng');
+        if (qLat !== null) setIfEmpty(latEl, qLat);
+        if (qLng !== null) setIfEmpty(lngEl, qLng);
+
+        // Client Error Display
+        function showClientError(msg) {
+          if (!errEl) return;
+          if (!msg) {
+            errEl.style.display = 'none';
+            errEl.textContent = '';
+            return;
+          }
+          errEl.style.display = 'block';
+          errEl.textContent = msg;
+        }
+
+        // Photo Preview Logic
+        if (photoEl && previewImg && uploadBox) {
+          photoEl.addEventListener('change', () => {
+            const f = (photoEl.files && photoEl.files[0]) ? photoEl.files[0] : null;
+            if (!f || !String(f.type || '').startsWith('image/')) {
+              uploadBox.classList.remove('has-file');
+              uploadPlaceholder.style.display = 'block';
+              previewImg.style.display = 'none';
+              previewImg.src = '';
+              return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => {
+              previewImg.src = String(reader.result || '');
+              previewImg.style.display = 'block';
+              uploadPlaceholder.style.display = 'none';
+              uploadBox.classList.add('has-file');
+            };
+            reader.readAsDataURL(f);
+          });
+        }
+
+        // Geolocation Logic
+        if (getLocationBtn && latEl && lngEl) {
+          getLocationBtn.addEventListener('click', () => {
+            if (!navigator.geolocation) {
+              alert('Geolocation is not supported by your browser');
+              return;
+            }
+            getLocationBtn.disabled = true;
+            getLocationBtn.style.opacity = '0.7';
+            getLocationBtn.innerHTML = 'Locating...';
+            
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                latEl.value = pos.coords.latitude.toFixed(6);
+                lngEl.value = pos.coords.longitude.toFixed(6);
+                getLocationBtn.disabled = false;
+                getLocationBtn.style.opacity = '';
+                getLocationBtn.innerHTML = `
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-8-10.5-8-11a8 8 0 0 1 16 0c0 .5-8 11-8 11z"/><circle cx="12" cy="11" r="3"/></svg>
+                  Get Current Location
+                `;
+              },
+              (err) => {
+                alert('Unable to retrieve location. Please allow location access.');
+                getLocationBtn.disabled = false;
+                getLocationBtn.style.opacity = '';
+                getLocationBtn.innerHTML = 'Get Current Location';
+              }
+            );
+          });
+        }
+
+        // Form Validation
+        if (form) {
+          form.addEventListener('submit', (e) => {
+            showClientError('');
+            const lat = latEl ? Number(latEl.value) : NaN;
+            const lng = lngEl ? Number(lngEl.value) : NaN;
+            const typeEl = document.getElementById('obstruction_type');
+            const t = typeEl ? String(typeEl.value || '').trim() : '';
+
+            if (!Number.isFinite(lat) || !Number.isFinite(lng) || !t) {
+              e.preventDefault();
+              showClientError('Please fill in Latitude, Longitude, and Type of obstruction.');
+              return;
+            }
+            if (lat < -90 || lat > 90) {
+              e.preventDefault();
+              showClientError('Latitude must be between -90 and 90.');
+              return;
+            }
+            if (lng < -180 || lng > 180) {
+              e.preventDefault();
+              showClientError('Longitude must be between -180 and 180.');
+              return;
+            }
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

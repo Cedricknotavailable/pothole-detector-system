@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Real-Time Object Detection</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+      .main-inner { display: grid; grid-template-columns: 1fr 320px; gap: 20px; height: calc(100% - 0px); align-items: start; }
+      .left { min-width: 0; }
+      .log-panel { background: #fff; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.08); padding: 12px; height: 600px; display: flex; flex-direction: column; }
+      .log-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-shrink: 0; }
+      .gps-indicator { width: 60px; height: 60px; display: inline-flex; align-items: center; justify-content: center; position: relative; }
+      .gps-indicator img { width: 60px; height: 60px; display: block; }
+      .gps-tooltip { position: absolute; left: 0; top: 0; transform: translateY(-115%); background: #fff; border: 1px solid rgba(0,0,0,.2); border-radius: 6px; padding: 6px 10px; box-shadow: 0 1px 3px rgba(0,0,0,.25); font-size: 12px; color: #334155; white-space: nowrap; opacity: 0; visibility: hidden; pointer-events: none; }
+      .gps-indicator:hover .gps-tooltip, .gps-indicator:focus-within .gps-tooltip { opacity: 1; visibility: visible; }
+      .log-title { font-weight: 800; color: #334155; }
+      .log-list { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 6px; flex: 1; scroll-behavior: smooth; }
+      .log-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; font-size: 13px; color: #0f172a; transition: background-color 0.3s; }
+      .log-item.unsure { background: #fef9c3; border-color: #fde047; }
+      .log-date-header { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; padding: 12px 4px 4px 4px; border-bottom: 1px solid #f1f5f9; margin-bottom: 4px; flex-shrink: 0; }
+      .log-date-header:first-child { padding-top: 4px; }
+      .load-more-wrap { padding: 10px 0; text-align: center; flex-shrink: 0; }
+      .btn-load-more { background: transparent; border: 1px solid #e2e8f0; color: #64748b; font-size: 12px; font-weight: 600; padding: 6px 16px; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+      .btn-load-more:hover { background: #f8fafc; color: #334155; border-color: #cbd5e1; }
+      .btn-load-more:disabled { opacity: 0.5; cursor: not-allowed; }
+      .actions { display: flex; gap: 10px; align-items: center; margin-top: 15px; }
+      .camera-select { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Inter', sans-serif; font-size: 14px; color: #334155; background-color: #fff; cursor: pointer; min-width: 200px; height: 42px; outline: none; transition: border-color 0.2s; }
+      .camera-select:focus { border-color: #3b82f6; }
+      .camera-select:disabled { background-color: #f1f5f9; cursor: not-allowed; opacity: 0.7; }
+      .btn { height: 42px; display: inline-flex; align-items: center; justify-content: center; padding: 0 20px; font-weight: 600; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s; font-size: 14px; }
+      .btn-green { background: #10b981; color: #fff; }
+      .btn-green:hover { background: #059669; }
+      .btn-red { background: #ef4444; color: #fff; }
+      .btn-red:hover { background: #dc2626; }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      @media (max-width: 1024px) { .main-inner { grid-template-columns: 1fr; } .log-panel { order: -1; height: auto; } }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">SURVEYOR.AI</div>
+        <div style="margin-left:auto; margin-right:12px; position:relative;">
+          <button id="notifBtn" style="background:none; border:none; width:40px; height:40px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; position:relative;">
+            <img src="{{ url_for('static', filename='icons/bell.svg') }}" width="24" height="24" alt="Notifications" style="filter: brightness(0) invert(1);" />
+            <div id="notifBadge" style="position:absolute; top:6px; right:6px; width:10px; height:10px; background:#ef4444; border:2px solid #556276; border-radius:50%; display:none;"></div>
+          </button>
+          <div id="notifPopup" style="display:none; position:absolute; right:0; top:50px; width:320px; background:#fff; border:1px solid #cbd5e1; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:1000; overflow:hidden;">
+            <div style="padding:12px 16px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+              <div style="font-weight:700; color:#0f172a; font-size:14px;">Notifications</div>
+              <button id="markAllReadBtn" style="background:none; border:none; color:#3b82f6; font-size:12px; font-weight:600; cursor:pointer; display:none;">Mark all read</button>
+            </div>
+            <div id="notifList" style="max-height:300px; overflow-y:auto;">
+              <div style="padding:20px; text-align:center; color:#64748b; font-size:13px;">No new notifications</div>
+            </div>
+          </div>
+        </div>
+    </header>
+    <div class="layout">
+        <aside class="sidebar">
+            <nav class="nav">
+                <a class="active" href="/index">Survey</a>
+          <a href="/map">Map</a>
+          <a href="/users">User management</a>
+          <a href="/defects">Defects Management</a>
+          <a href="/settings">Settings</a>
+          <a href="/admin/backups">Backup Management</a>
+          <a href="/analytics">Analytics</a>
+          <a href="/logout">Log Out</a>
+            </nav>
+        </aside>
+        <main class="main">
+            <div class="main-inner">
+              <div class="left">
+                <div class="panel">
+                    <img id="videoStream" src="" alt="">
+                    <div id="placeholder">No Camera Connected</div>
+                </div>
+                <div class="actions">
+                    <select id="cameraSelect" class="camera-select" aria-label="Select camera device">
+                        <option value="0">Default Camera</option>
+                    </select>
+                    <button id="startBtn" class="btn btn-green" type="button">Start Stream</button>
+                </div>
+              </div>
+              <aside class="log-panel">
+                <div class="log-header">
+                  <span id="gpsIndicator" class="gps-indicator" aria-label="GPS has no valid fix" tabindex="0">
+                    <span id="gpsTooltip" class="gps-tooltip" role="tooltip">GPS has no valid fix</span>
+                    <img id="gpsIcon" src="{{ url_for('static', filename='icons/red satellite.png') }}" alt="GPS has no valid fix" />
+                  </span>
+                  <div class="log-title">Detections</div>
+                </div>
+                <div id="logList" class="log-list"></div>
+                <div id="loadMoreWrap" class="load-more-wrap" style="display: none;">
+                  <button id="loadMoreBtn" class="btn-load-more" type="button">Load older logs</button>
+                </div>
+              </aside>
+            </div>
+        </main>
+    </div>
+    <script>
+      (function () {
+        const img = document.getElementById('videoStream');
+        const ph = document.getElementById('placeholder');
+        const btn = document.getElementById('startBtn');
+        const cameraSelect = document.getElementById('cameraSelect');
+        let started = false;
+        const logList = document.getElementById('logList');
+        const loadMoreBtn = document.getElementById('loadMoreBtn');
+        const loadMoreWrap = document.getElementById('loadMoreWrap');
+        const gpsIndicator = document.getElementById('gpsIndicator');
+        const gpsIcon = document.getElementById('gpsIcon');
+        const gpsTooltip = document.getElementById('gpsTooltip');
+        const seen = new Set();
+        let oldestLoadedId = null;
+        let newestLoadedId = null;
+        let hasMore = false;
+        let isInitialLoad = true;
+
+        const GPS_ICON_RED = "{{ url_for('static', filename='icons/red satellite.png') }}";
+        const GPS_ICON_GREEN = "{{ url_for('static', filename='icons/green satellite.png') }}";
+        const GPS_TT_RED = "GPS has no valid fix";
+        const GPS_TT_GREEN = "GPS has valid fix";
+
+        async function initCameras() {
+          try {
+            // Attempt to list devices without requesting permission first
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            
+            cameraSelect.innerHTML = '';
+            if (videoDevices.length === 0) {
+              // No devices found (or permission blocked completely)
+              // Provide default options assuming the user might have cameras attached
+              const opt = document.createElement('option');
+              opt.value = "0";
+              opt.textContent = "Default Camera (0)";
+              cameraSelect.appendChild(opt);
+              
+              const opt2 = document.createElement('option');
+              opt2.value = "1";
+              opt2.textContent = "Camera 1";
+              cameraSelect.appendChild(opt2);
+            } else {
+              videoDevices.forEach((device, index) => {
+                const opt = document.createElement('option');
+                opt.value = index;
+                // Use label if available, otherwise generic name
+                opt.textContent = device.label ? device.label : `Camera ${index} (Device ${index})`;
+                cameraSelect.appendChild(opt);
+              });
+            }
+            cameraSelect.disabled = false;
+            btn.disabled = false;
+          } catch (err) {
+            console.error('Camera enumeration error:', err);
+            // Fallback defaults
+            cameraSelect.innerHTML = `
+                <option value="0">Default Camera (0)</option>
+                <option value="1">Camera 1</option>
+            `;
+            cameraSelect.disabled = false;
+            btn.disabled = false;
+          }
+        }
+
+        initCameras();
+
+        function showImage() { img.style.opacity = '1'; ph.style.display = 'none'; }
+        function showPlaceholder() { img.style.opacity = '0'; ph.style.display = 'flex'; }
+
+        function setBtnRunning() {
+          btn.textContent = 'Stop Stream';
+          btn.classList.remove('btn-green');
+          btn.classList.add('btn-red');
+          cameraSelect.disabled = true;
+        }
+
+        function setBtnStopped() {
+          btn.textContent = 'Start Stream';
+          btn.classList.remove('btn-red');
+          btn.classList.add('btn-green');
+          cameraSelect.disabled = false;
+        }
+
+        img.addEventListener('load', function(){
+          showImage();
+          if (started) setBtnRunning();
+        });
+        img.addEventListener('error', function(){
+          showPlaceholder();
+          started = false;
+          setBtnStopped();
+        });
+
+        // Initial state
+        showPlaceholder();
+        setBtnStopped();
+
+        // Ensure camera is stopped on load
+        fetch('/stop', { method: 'POST' }).catch(() => {});
+
+        btn.addEventListener('click', function(){
+          if (!started) {
+            started = true;
+            setBtnRunning();
+            const cameraIndex = cameraSelect.value;
+            // tell backend to open camera, then start the stream
+            fetch('/start', { 
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ camera_index: cameraIndex })
+            })
+              .catch(() => {})
+              .finally(() => {
+                // add cache-busting param to ensure fresh connection
+                img.src = '/video?ts=' + Date.now();
+              });
+          } else {
+            // Stop the stream by clearing the image src; server will drop the client
+            img.src = '';
+            started = false;
+            showPlaceholder();
+            setBtnStopped();
+            // tell backend to release camera
+            fetch('/stop', { method: 'POST' }).catch(() => {});
+          }
+        });
+
+        function renderDetection(it, mode = 'prepend') {
+          const dateObj = new Date(it.ts * 1000);
+          const dateStr = dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+          const headerId = 'date-' + dateObj.toISOString().split('T')[0];
+          let header = document.getElementById(headerId);
+
+          if (!header) {
+            header = document.createElement('div');
+            header.id = headerId;
+            header.className = 'log-date-header';
+            header.textContent = dateStr;
+            
+            if (mode === 'prepend') {
+              logList.insertBefore(header, logList.firstChild);
+            } else {
+              logList.appendChild(header);
+            }
+          }
+
+          const label = it.label || (it.labels && it.labels[0]) || 'detection';
+          const ts = it.ts_iso || dateObj.toLocaleString();
+          const lat = (typeof it.lat === 'number') ? it.lat.toFixed(6) : it.lat;
+          const lon = (typeof it.lon === 'number') ? it.lon.toFixed(6) : it.lon;
+          
+          const div = document.createElement('div');
+          div.className = 'log-item';
+          if (it.review_status === 'pending') {
+            div.classList.add('unsure');
+          }
+          
+          if (it.gps_valid && typeof it.lat === 'number' && typeof it.lon === 'number') {
+            div.textContent = `${label} detected at (${lon}, ${lat}) at ${ts}`;
+          } else {
+            div.textContent = `${label} detected (no valid GPS fix) at ${ts}`;
+          }
+
+          if (mode === 'prepend') {
+            header.insertAdjacentElement('afterend', div);
+          } else {
+            // Find last item of this date group to append after it, 
+            // but before the next header if it exists.
+            // Simplified: if we are loading older logs, we can just append to the list
+            // because they are guaranteed to be the oldest items so far.
+            logList.appendChild(div);
+          }
+
+          // Update ID bounds
+          if (oldestLoadedId === null || it.id < oldestLoadedId) {
+            oldestLoadedId = it.id;
+          }
+          if (newestLoadedId === null || it.id > newestLoadedId) {
+            newestLoadedId = it.id;
+          }
+        }
+
+        async function pollDetections(){
+          try {
+            let url = '/detections?ts=' + Date.now();
+            if (isInitialLoad) {
+              url += '&limit=20';
+            } else if (newestLoadedId) {
+              url += '&after_id=' + newestLoadedId;
+            }
+
+            const res = await fetch(url);
+            const data = await res.json();
+            const items = data.items || [];
+            
+            // Sort ascending (oldest to newest)
+            // When we 'prepend' them one by one, the newest ends up at the very top.
+            items.sort((a,b)=>a.id-b.id);
+
+            for (const it of items) {
+              if (seen.has(it.id)) continue;
+              seen.add(it.id);
+              renderDetection(it, 'prepend');
+            }
+
+            if (isInitialLoad) {
+              isInitialLoad = false;
+              hasMore = !!data.has_more;
+              updateLoadMoreVisibility();
+            }
+          } catch(e) {}
+        }
+
+        async function loadOlderLogs() {
+          if (!oldestLoadedId) return;
+          loadMoreBtn.disabled = true;
+          loadMoreBtn.textContent = 'Loading...';
+          
+          try {
+            const res = await fetch(`/detections?before_id=${oldestLoadedId}&limit=20&ts=` + Date.now());
+            const data = await res.json();
+            const items = data.items || [];
+            
+            // sort descending to append them in order
+            items.sort((a,b)=>b.id-a.id);
+
+            for (const it of items) {
+              if (seen.has(it.id)) continue;
+              seen.add(it.id);
+              renderDetection(it, 'append');
+            }
+
+            hasMore = !!data.has_more;
+            updateLoadMoreVisibility();
+          } catch(e) {
+            console.error('Error loading older logs:', e);
+          } finally {
+            loadMoreBtn.disabled = false;
+            loadMoreBtn.textContent = 'Load older logs';
+          }
+        }
+
+        function updateLoadMoreVisibility() {
+          if (loadMoreWrap) {
+            loadMoreWrap.style.display = hasMore ? 'block' : 'none';
+          }
+        }
+
+        if (loadMoreBtn) {
+          loadMoreBtn.addEventListener('click', loadOlderLogs);
+        }
+
+        async function pollGps(){
+          try {
+            const res = await fetch('/gps?ts=' + Date.now());
+            const data = await res.json();
+            const ok = !!(data && data.valid);
+            const tt = ok ? GPS_TT_GREEN : GPS_TT_RED;
+            if (gpsIcon) {
+              gpsIcon.src = ok ? GPS_ICON_GREEN : GPS_ICON_RED;
+              gpsIcon.alt = tt;
+            }
+            if (gpsIndicator) {
+              gpsIndicator.setAttribute('aria-label', tt);
+            }
+            if (gpsTooltip) {
+              gpsTooltip.textContent = tt;
+            }
+          } catch(e) {
+            if (gpsIcon) {
+              gpsIcon.src = GPS_ICON_RED;
+              gpsIcon.alt = GPS_TT_RED;
+            }
+            if (gpsIndicator) {
+              gpsIndicator.setAttribute('aria-label', GPS_TT_RED);
+            }
+            if (gpsTooltip) {
+              gpsTooltip.textContent = GPS_TT_RED;
+            }
+          }
+        }
+        // initial and interval
+        pollDetections();
+        pollGps();
+        setInterval(pollDetections, 2000);
+        setInterval(pollGps, 2000);
+
+        // Safety: release camera when navigating away
+        window.addEventListener('beforeunload', function(){
+          if (started) {
+            try { fetch('/stop', { method: 'POST', keepalive: true }); } catch(e) {}
+          }
+        });
+
+        // Notifications Logic
+        const notifBtn = document.getElementById('notifBtn');
+        const notifBadge = document.getElementById('notifBadge');
+        const notifPopup = document.getElementById('notifPopup');
+        const notifList = document.getElementById('notifList');
+        const markAllReadBtn = document.getElementById('markAllReadBtn');
+        let notifOpen = false;
+
+        async function fetchNotifications() {
+          try {
+            const res = await fetch('/notifications/unread');
+            const data = await res.json();
+            const items = data.items || [];
+            
+            if (data.count > 0) {
+              notifBadge.style.display = 'block';
+              markAllReadBtn.style.display = 'block';
+            } else {
+              notifBadge.style.display = 'none';
+              markAllReadBtn.style.display = 'none';
+            }
+            
+            if (items.length === 0) {
+              notifList.innerHTML = '<div style="padding:20px; text-align:center; color:#64748b; font-size:13px;">No new notifications</div>';
+            } else {
+              notifList.innerHTML = items.map(n => `
+                <div style="padding:12px 16px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.2s;" 
+                     onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'"
+                     onclick="handleNotifClick(${n.id}, '${n.link || ''}')">
+                  <div style="font-weight:600; font-size:13px; color:#0f172a; margin-bottom:4px;">${n.title}</div>
+                  <div style="font-size:12px; color:#475569; line-height:1.4;">${n.message}</div>
+                  <div style="font-size:11px; color:#94a3b8; margin-top:6px;">${n.created_at_iso}</div>
+                </div>
+              `).join('');
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }
+
+        window.handleNotifClick = async function(id, link) {
+          try {
+            await fetch(`/notifications/mark-read/${id}`, { method: 'POST' });
+            if (link) window.location.href = link;
+            else fetchNotifications();
+          } catch (e) {}
+        };
+
+        markAllReadBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          try {
+            await fetch('/notifications/mark-all-read', { method: 'POST' });
+            fetchNotifications();
+          } catch (e) {}
+        });
+
+        notifBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          notifOpen = !notifOpen;
+          notifPopup.style.display = notifOpen ? 'block' : 'none';
+          if (notifOpen) fetchNotifications();
+        });
+
+        document.addEventListener('click', (e) => {
+          if (notifOpen && !notifPopup.contains(e.target) && !notifBtn.contains(e.target)) {
+            notifOpen = false;
+            notifPopup.style.display = 'none';
+          }
+        });
+
+        // Poll notifications every 30s
+        fetchNotifications();
+        setInterval(fetchNotifications, 30000);
+      })();
+    </script>
+  </body>
+</html>

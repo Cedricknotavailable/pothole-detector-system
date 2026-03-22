@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Settings - Surveyor.AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/users.css') }}" />
+    <style>
+      .settings-form { max-width: 600px; }
+      .setting-group { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #f1f5f9; }
+      .setting-group:last-child { border-bottom: none; }
+      .setting-title { font-weight: 700; font-size: 16px; color: #0f172a; margin-bottom: 8px; }
+      .setting-desc { font-size: 14px; color: #64748b; margin-bottom: 16px; line-height: 1.5; }
+      .setting-input-wrap { display: flex; align-items: center; gap: 12px; }
+      .setting-input { width: 120px; }
+      .setting-unit { font-size: 14px; font-weight: 600; color: #475569; }
+
+      /* Accordion Styles */
+      .accordion-item { border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+      .accordion-header { 
+        padding: 16px 24px; background: #f8fafc; cursor: pointer; 
+        font-weight: 700; color: #0f172a; font-size: 15px; 
+        display: flex; justify-content: space-between; align-items: center;
+        user-select: none;
+      }
+      .accordion-header:hover { background: #f1f5f9; }
+      .accordion-header::after { content: '▼'; font-size: 12px; color: #64748b; transition: transform 0.2s; }
+      .accordion-item.active .accordion-header::after { transform: rotate(180deg); }
+      .accordion-content { display: none; padding: 24px; background: #fff; border-top: 1px solid #e2e8f0; }
+      .accordion-item.active .accordion-content { display: block; }
+
+      .drive-status { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding: 12px; background: #f8fafc; border-radius: 8px; }
+      .drive-status.connected { background: #ecfdf5; color: #065f46; }
+      .drive-status.disconnected { background: #fef2f2; color: #b91c1c; }
+      
+      .action-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; border: none; text-decoration: none; }
+      .btn-primary { background: var(--accent); color: #fff; }
+      .btn-outline { background: #fff; border: 1px solid #cbd5e1; color: #475569; }
+      .btn-outline:hover { border-color: #94a3b8; background: #f8fafc; }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">SURVEYOR.AI</div>
+      <div style="margin-left:auto; margin-right:12px; position:relative;">
+        <button id="notifBtn" style="background:none; border:none; width:40px; height:40px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; position:relative;">
+          <img src="{{ url_for('static', filename='icons/bell.svg') }}" width="24" height="24" alt="Notifications" style="filter: brightness(0) invert(1);" />
+          <div id="notifBadge" style="position:absolute; top:6px; right:6px; width:10px; height:10px; background:#ef4444; border:2px solid #556276; border-radius:50%; display:none;"></div>
+        </button>
+        <div id="notifPopup" style="display:none; position:absolute; right:0; top:50px; width:320px; background:#fff; border:1px solid #cbd5e1; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:1000; overflow:hidden;">
+          <div style="padding:12px 16px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-weight:700; color:#0f172a; font-size:14px;">Notifications</div>
+            <button id="markAllReadBtn" style="background:none; border:none; color:#3b82f6; font-size:12px; font-weight:600; cursor:pointer; display:none;">Mark all read</button>
+          </div>
+          <div id="notifList" style="max-height:300px; overflow-y:auto;">
+            <div style="padding:20px; text-align:center; color:#64748b; font-size:13px;">No new notifications</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <nav class="nav">
+          <a href="/index">Survey</a>
+          <a href="/map">Map</a>
+          <a href="/users">User management</a>
+          <a href="/defects">Defects Management</a>
+          <a class="active" href="/settings">Settings</a>
+          <a href="/admin/backups">Backup Management</a>
+          <a href="/analytics">Analytics</a>
+          <a href="/logout">Log Out</a>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <div class="page">
+          <div class="page-header">
+            <div>
+              <div class="title">System Settings</div>
+              <div class="subtitle">Configure global application parameters</div>
+            </div>
+          </div>
+
+          <div class="card" style="background:transparent; box-shadow:none; padding:0;">
+            
+            {% if success or success_msg %}
+              <div style="margin-bottom: 24px; padding: 12px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 8px; font-weight: 600; font-size: 14px;">
+                {{ success_msg or 'Settings saved successfully.' }}
+              </div>
+            {% endif %}
+
+            {% if errors %}
+              <div style="margin-bottom: 24px; padding: 12px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 8px; font-weight: 600; font-size: 14px;">
+                {% for e in errors %}
+                  <div>{{ e }}</div>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            <!-- Section 1: General Configuration -->
+            <div class="accordion-item active">
+              <div class="accordion-header" onclick="toggleAccordion(this)">General Configuration</div>
+              <div class="accordion-content">
+                <form method="post" action="{{ url_for('settings_page') }}" class="settings-form">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                  <input type="hidden" name="action" value="general_settings" />
+
+                  <div class="setting-group">
+                    <div class="setting-title">Fixed Defect Marker Expiration</div>
+                    <div class="setting-desc">Defines how long a defect marked as "Fixed" remains visible on the map before being automatically hidden.</div>
+                    <div class="setting-input-wrap">
+                      <input type="number" name="fixed_defect_expiration_days" class="control-input setting-input" min="1" value="{{ settings.fixed_defect_expiration_days }}" required />
+                      <span class="setting-unit">days</span>
+                    </div>
+                  </div>
+
+                  <div class="setting-group">
+                    <div class="setting-title">Automatic Fix Threshold (Community Validation)</div>
+                    <div class="setting-desc">The number of "thumbs up" (positive user confirmations) required for a report to be automatically marked as "Fixed".</div>
+                    <div class="setting-input-wrap">
+                      <input type="number" name="auto_fix_threshold" class="control-input setting-input" min="1" value="{{ settings.auto_fix_threshold }}" required />
+                      <span class="setting-unit">thumbs up</span>
+                    </div>
+                  </div>
+
+                  <div class="setting-group">
+                    <div class="setting-title">False Report Threshold (Account Security)</div>
+                    <div class="setting-desc">The number of false reports a user can submit before their account is automatically blocked (status set to "locked").</div>
+                    <div class="setting-input-wrap">
+                      <input type="number" name="false_report_threshold" class="control-input setting-input" min="1" value="{{ settings.false_report_threshold }}" required />
+                      <span class="setting-unit">false reports</span>
+                    </div>
+                  </div>
+
+                  <div style="margin-top: 24px;">
+                    <button type="submit" class="action-btn btn-primary">Save Changes</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <!-- Section 2: Backup and Recovery -->
+            <div class="accordion-item">
+              <div class="accordion-header" onclick="toggleAccordion(this)">Backup and Recovery</div>
+              <div class="accordion-content">
+                
+                <div class="setting-group">
+                  <div class="setting-title">Backup Management</div>
+                  <div class="setting-desc">Manage database export and restore workflows in a dedicated workspace.</div>
+                  <a href="/admin/backups" class="action-btn btn-outline">Open Backup Management</a>
+                </div>
+
+                <!-- B2 Status / Config -->
+                <div class="setting-group">
+                   <div class="setting-title">Backblaze B2 Connection</div>
+                   <div class="setting-desc">Connect your Backblaze B2 bucket to enable cloud backups.</div>
+                   
+                   {% if b2_connected %}
+                     <div class="drive-status connected">
+                       <span style="font-size:20px">✅</span> Connected to Backblaze B2
+                     </div>
+                     <form method="post" action="{{ url_for('b2_disconnect') }}" onsubmit="return confirm('Are you sure you want to disconnect?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                        <button type="submit" class="action-btn btn-outline" style="color:#b91c1c; border-color:#fecaca;">Disconnect</button>
+                     </form>
+                   {% else %}
+                     <div class="drive-status disconnected">
+                       <span style="font-size:20px">⚠️</span> Not Connected
+                     </div>
+                     <form method="post" action="{{ url_for('b2_connect') }}" class="settings-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                        <div style="margin-bottom:12px;">
+                            <label style="display:block; font-size:12px; font-weight:600; margin-bottom:4px;">Key ID</label>
+                            <input type="text" name="key_id" class="control-input" style="width:100%" placeholder="Application Key ID" required value="{{ settings.b2_key_id or '' }}">
+                        </div>
+                        <div style="margin-bottom:12px;">
+                            <label style="display:block; font-size:12px; font-weight:600; margin-bottom:4px;">Application Key</label>
+                            <input type="password" name="app_key" class="control-input" style="width:100%" placeholder="Application Key" required value="{{ settings.b2_app_key or '' }}">
+                        </div>
+                        <div style="margin-bottom:12px;">
+                            <label style="display:block; font-size:12px; font-weight:600; margin-bottom:4px;">Bucket Name</label>
+                            <input type="text" name="bucket_name" class="control-input" style="width:100%" placeholder="B2 Bucket Name" required value="{{ settings.b2_bucket_name or '' }}">
+                        </div>
+                        <button type="submit" class="action-btn btn-primary">Connect Backblaze B2</button>
+                     </form>
+                   {% endif %}
+                </div>
+
+                {% if b2_connected %}
+                <div class="setting-group">
+                  <div class="setting-title">Backup Operations</div>
+                  <div class="setting-desc">Manually backup the database to Backblaze B2 or restore from a previous backup.</div>
+                  
+                  <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+                    <form method="post" action="{{ url_for('b2_backup') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                        <button type="submit" class="action-btn btn-primary">⬆️ Backup Database Now</button>
+                    </form>
+                    
+                    <button type="button" class="action-btn btn-outline" onclick="document.getElementById('restore-section').style.display='block'">⬇️ Restore from Backup</button>
+                  </div>
+
+                  <!-- Restore Section (Hidden by default) -->
+                  <div id="restore-section" style="display:none; margin-top:20px; padding:16px; background:#f8fafc; border-radius:8px;">
+                      <div class="setting-title" style="font-size:14px;">Select Backup to Restore</div>
+                      <div class="setting-desc">Warning: Restoring will overwrite the current database. This action cannot be undone.</div>
+                      
+                      {% if backups %}
+                        <form method="post" action="{{ url_for('b2_restore') }}" onsubmit="return confirm('WARNING: This will overwrite your current database with the selected backup. Continue?');">
+                           <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                           <select name="file_id" class="control-input" style="width:100%; margin-bottom:12px;" required>
+                              <option value="">-- Select a backup file --</option>
+                              {% for b in backups %}
+                                <option value="{{ b.id }}">{{ b.name }} ({{ b.createdTime }})</option>
+                              {% endfor %}
+                           </select>
+                           <button type="submit" class="action-btn btn-primary" style="background:#b91c1c;">Restore Selected Backup</button>
+                        </form>
+                      {% else %}
+                        <div style="color:#64748b; font-size:13px; padding:8px;">No backups found in B2 bucket.</div>
+                      {% endif %}
+                  </div>
+                </div>
+                {% endif %}
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      function toggleAccordion(header) {
+        const item = header.parentElement;
+        const isActive = item.classList.contains('active');
+        document.querySelectorAll('.accordion-item').forEach(i => i.classList.remove('active'));
+        if (!isActive) item.classList.add('active');
+      }
+
+       (function() {
+         // Notifications Logic
+         const notifBtn = document.getElementById('notifBtn');
+         const notifBadge = document.getElementById('notifBadge');
+         const notifPopup = document.getElementById('notifPopup');
+         const notifList = document.getElementById('notifList');
+         const markAllReadBtn = document.getElementById('markAllReadBtn');
+         let notifOpen = false;
+ 
+         async function fetchNotifications() {
+           try {
+             const res = await fetch('/notifications/unread');
+             const data = await res.json();
+             const items = data.items || [];
+             
+             if (data.count > 0) {
+               notifBadge.style.display = 'block';
+               markAllReadBtn.style.display = 'block';
+             } else {
+               notifBadge.style.display = 'none';
+               markAllReadBtn.style.display = 'none';
+             }
+             
+             if (items.length === 0) {
+               notifList.innerHTML = '<div style="padding:20px; text-align:center; color:#64748b; font-size:13px;">No new notifications</div>';
+             } else {
+               notifList.innerHTML = items.map(n => `
+                 <div style="padding:12px 16px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.2s;" 
+                      onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'"
+                      onclick="handleNotifClick(${n.id}, '${n.link || ''}')">
+                   <div style="font-weight:600; font-size:13px; color:#0f172a; margin-bottom:4px;">${n.title}</div>
+                   <div style="font-size:12px; color:#475569; line-height:1.4;">${n.message}</div>
+                   <div style="font-size:11px; color:#94a3b8; margin-top:6px;">${n.created_at_iso}</div>
+                 </div>
+               `).join('');
+             }
+           } catch (e) {
+             console.error(e);
+           }
+         }
+ 
+         window.handleNotifClick = async function(id, link) {
+           try {
+             await fetch(`/notifications/mark-read/${id}`, { method: 'POST' });
+             if (link) window.location.href = link;
+             else fetchNotifications();
+           } catch (e) {}
+         };
+ 
+         markAllReadBtn.addEventListener('click', async (e) => {
+           e.stopPropagation();
+           try {
+             await fetch('/notifications/mark-all-read', { method: 'POST' });
+             fetchNotifications();
+           } catch (e) {}
+         });
+ 
+         notifBtn.addEventListener('click', (e) => {
+           e.stopPropagation();
+           notifOpen = !notifOpen;
+           notifPopup.style.display = notifOpen ? 'block' : 'none';
+           if (notifOpen) fetchNotifications();
+         });
+ 
+         document.addEventListener('click', (e) => {
+           if (notifOpen && !notifPopup.contains(e.target) && !notifBtn.contains(e.target)) {
+             notifOpen = false;
+             notifPopup.style.display = 'none';
+           }
+         });
+ 
+         // Poll notifications every 30s
+         fetchNotifications();
+         setInterval(fetchNotifications, 30000);
+       })();
+    </script>
+  </body>
+</html>

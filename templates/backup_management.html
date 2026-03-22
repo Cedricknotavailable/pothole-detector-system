@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Backup Management - Surveyor.AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/users.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/backups.css') }}" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">SURVEYOR.AI</div>
+      <div style="margin-left:auto; margin-right:12px; position:relative;">
+        <button id="notifBtn" style="background:none; border:none; width:40px; height:40px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; position:relative;">
+          <img src="{{ url_for('static', filename='icons/bell.svg') }}" width="24" height="24" alt="Notifications" style="filter: brightness(0) invert(1);" />
+          <div id="notifBadge" style="position:absolute; top:6px; right:6px; width:10px; height:10px; background:#ef4444; border:2px solid #556276; border-radius:50%; display:none;"></div>
+        </button>
+        <div id="notifPopup" style="display:none; position:absolute; right:0; top:50px; width:320px; background:#fff; border:1px solid #cbd5e1; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:1000; overflow:hidden;">
+          <div style="padding:12px 16px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-weight:700; color:#0f172a; font-size:14px;">Notifications</div>
+            <button id="markAllReadBtn" style="background:none; border:none; color:#3b82f6; font-size:12px; font-weight:600; cursor:pointer; display:none;">Mark all read</button>
+          </div>
+          <div id="notifList" style="max-height:300px; overflow-y:auto;">
+            <div style="padding:20px; text-align:center; color:#64748b; font-size:13px;">No new notifications</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <nav class="nav">
+          <a href="/index">Survey</a>
+          <a href="/map">Map</a>
+          <a href="/users">User management</a>
+          <a href="/defects">Defects Management</a>
+          <a href="/settings">Settings</a>
+          <a class="active" href="/admin/backups">Backup Management</a>
+          <a href="/analytics">Analytics</a>
+          <a href="/logout">Log Out</a>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <div class="page">
+          <div class="page-header">
+            <div>
+              <div class="title">Backup Management</div>
+              <div class="subtitle">Secure database export and recovery operations</div>
+            </div>
+          </div>
+
+          <div class="backup-container">
+            
+            {% if success_msg %}
+              <div class="status-msg status-success">
+                <span>✅</span> {{ success_msg }}
+              </div>
+            {% endif %}
+            
+            {% if error_msg %}
+              <div class="status-msg status-error">
+                <span>⚠️</span> {{ error_msg }}
+              </div>
+            {% endif %}
+
+            <!-- Export Section -->
+            <section class="backup-section">
+              <div class="backup-header">
+                <div class="backup-title-group">
+                  <h2 class="backup-title">Export Database</h2>
+                  <p class="backup-desc">Create a downloadable backup of the current system database.</p>
+                </div>
+              </div>
+              <div class="backup-content">
+                <form method="post" action="{{ url_for('admin_backups_export') }}" id="exportForm">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                  
+                  <div class="backup-form-group">
+                    <label class="backup-label">Backup Filename</label>
+                    <input type="text" name="backup_filename" class="control-input" value="{{ default_filename }}" placeholder="backup_YYYYMMDD_HHMMSS.db" required />
+                  </div>
+
+                  <div class="backup-form-group">
+                    <label class="backup-label">Format</label>
+                    <select name="backup_format" class="control-input">
+                      <option value="db" {% if default_format == 'db' %}selected{% endif %}>SQLite Database (.db)</option>
+                      <option value="sql" {% if default_format == 'sql' %}selected{% endif %}>SQL Dump (.sql)</option>
+                    </select>
+                  </div>
+
+                  <button type="submit" class="action-btn btn-primary" id="exportBtn">
+                    <span>⬇️</span> Download Backup
+                  </button>
+                </form>
+              </div>
+            </section>
+
+            <!-- Import Section -->
+            <section class="backup-section">
+              <div class="backup-header">
+                <div class="backup-title-group">
+                  <h2 class="backup-title">Restore Database</h2>
+                  <p class="backup-desc">Restore the system from a previous backup file. <strong>Warning: This will overwrite existing data.</strong></p>
+                </div>
+              </div>
+              <div class="backup-content">
+                <form method="post" action="{{ url_for('admin_backups_import') }}" enctype="multipart/form-data" id="importForm">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                  
+                  <div class="file-drop-zone" id="dropZone">
+                    <input type="file" name="backup_file" class="file-input" id="fileInput" accept=".db,.sql" required />
+                    <div class="drop-icon">📂</div>
+                    <div class="drop-text">Click to upload or drag and drop</div>
+                    <div class="drop-hint">Supported formats: .db, .sql</div>
+                    <div id="fileName" style="margin-top:12px; font-weight:700; color:var(--accent);"></div>
+                  </div>
+
+                  <div style="margin-top:20px; text-align:right;">
+                    <button type="submit" class="action-btn btn-danger" id="importBtn" onclick="return confirm('⚠️ CRITICAL WARNING ⚠️\n\nRestoring a backup will COMPLETELY ERASE and REPLACE the current database.\n\nAre you sure you want to proceed?');">
+                      <span>🔄</span> Restore Database
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+
+            <!-- History Section -->
+            {% if history %}
+            <section class="backup-section">
+              <div class="backup-header">
+                <div class="backup-title-group">
+                  <h2 class="backup-title">Operation History</h2>
+                  <p class="backup-desc">Recent backup and restore activities.</p>
+                </div>
+              </div>
+              <div class="history-container">
+                <div class="history-list">
+                  {% for item in history %}
+                  <div class="history-item">
+                    <div class="history-info">
+                      <div class="history-title">
+                        {% if item.operation == 'export' %}Export{% else %}Import{% endif %} 
+                        {% if item.filename %}- {{ item.filename }}{% endif %}
+                      </div>
+                      <div class="history-meta">
+                        By {{ item.user }} • {{ item.timestamp_iso }}
+                      </div>
+                    </div>
+                    <div>
+                      {% if item.status == 'success' %}
+                        <span class="status-badge success">Success</span>
+                      {% else %}
+                        <span class="status-badge failure">Failed</span>
+                      {% endif %}
+                      
+                      {% if item.operation == 'export' and item.status == 'success' and item.can_download %}
+                        <a href="{{ url_for('admin_backups_download', filename=item.filename) }}" class="action-btn btn-outline" style="padding:4px 8px; font-size:12px; margin-left:8px;">Download</a>
+                      {% endif %}
+                    </div>
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </section>
+            {% endif %}
+
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Processing... Please wait.</div>
+    </div>
+
+    <script>
+      // File Input Handling
+      const fileInput = document.getElementById('fileInput');
+      const fileName = document.getElementById('fileName');
+      const dropZone = document.getElementById('dropZone');
+
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          fileName.textContent = 'Selected: ' + e.target.files[0].name;
+          dropZone.style.borderColor = 'var(--accent)';
+          dropZone.style.background = '#eff6ff';
+        }
+      });
+
+      // Drag and Drop Visuals
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+      });
+
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        fileInput.files = files;
+        if (files.length > 0) {
+          fileName.textContent = 'Selected: ' + files[0].name;
+          dropZone.style.borderColor = 'var(--accent)';
+          dropZone.style.background = '#eff6ff';
+        }
+      });
+
+      // Loading State
+      const forms = document.querySelectorAll('form');
+      const loadingOverlay = document.getElementById('loadingOverlay');
+
+      forms.forEach(form => {
+        form.addEventListener('submit', (e) => {
+          // Allow confirm dialog to block first
+          // If import form, confirm is inline onclick, but we should double check
+          // Ideally confirm logic should be here, but inline is fine for now.
+          // Show loading
+          loadingOverlay.style.display = 'flex';
+        });
+      });
+    </script>
+  </body>
+</html>

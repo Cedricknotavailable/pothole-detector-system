@@ -1,0 +1,24 @@
+:root { --topbar:#556276; --accent:#1e90ff; --sidebar:#4b5b6c; --text:#0f172a; --muted:#64748b; --bg:#f3f4f6; --panel:#e5e7eb; }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: var(--text); background: var(--bg); overflow-x: hidden; }
+.topbar { height: 64px; background: var(--topbar); border-bottom: 3px solid var(--accent); display: flex; align-items: center; padding: 0 20px; }
+.brand { color: #fff; font-weight: 800; letter-spacing: 0.5px; font-size: 22px; }
+.layout { display: flex; height: calc(100vh - 64px); }
+.sidebar { width: 220px; background: var(--sidebar); padding: 16px 8px; }
+.nav { display: flex; flex-direction: column; gap: 6px; }
+.nav a { text-decoration: none; color: #e6ebf1; font-weight: 600; padding: 10px 14px; border-radius: 999px; display: inline-block; margin: 4px 6px; transition: background .15s, color .15s; }
+.nav a:hover { background: rgba(255,255,255,.08); }
+.nav a.active { background: #fff; color: #2b3947; }
+.main { /* keep padding but prevent horizontal scroll */
+  flex: 1; padding: 28px; overflow-y: auto; overflow-x: hidden; }
+.panel { position: relative; width: 100%; max-width: 900px; aspect-ratio: 16 / 9; margin: 0 auto; background: var(--panel); border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.08); display: grid; place-items: center; overflow: hidden; }
+#videoStream { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; border-radius: 10px; display: block; opacity: 0; }
+#placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: clamp(16px, 2.4vw, 28px); text-shadow: 0 1px 2px rgba(0,0,0,.25); opacity: .9; }
+.actions { width: 100%; max-width: 900px; margin: 16px auto 0; display: flex; justify-content: center; }
+.btn { border: none; padding: 10px 16px; border-radius: 8px; color: #fff; font-weight: 700; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.15); transition: background-color .15s, transform .02s; }
+.btn:active { transform: translateY(1px); }
+.btn-red { background: #dc2626; }
+.btn-red:hover { background: #b91c1c; }
+.btn-green { background: #16a34a; }
+.btn-green:hover { background: #15803d; }

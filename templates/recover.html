@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Account Recovery</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body>
+  <div class="card" role="region" aria-label="Account recovery form">
+    <form class="card-inner" method="post" action="{{ url_for('recover') }}" novalidate id="recoveryForm">
+      <div class="field">
+        <label for="identifier">Username or Email</label>
+        <input id="identifier" name="identifier" type="text" class="input" placeholder="Enter username or email" autocomplete="username" value="{{ (values.get('identifier') if values else '') }}" />
+        <div class="helper">Use your username or the email address on your account.</div>
+        <div class="field-error" id="clientError" style="display:none;">
+          <ul><li></li></ul>
+        </div>
+        {% if field_errors and field_errors.identifier %}
+        <div class="field-error">
+          <ul>
+            {% for e in field_errors.identifier %}
+            <li>{{ e }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="actions">
+        <button class="btn" type="submit">Recover Account</button>
+      </div>
+
+      {% if info_msg %}
+      <div class="notice" role="status">{{ info_msg }}</div>
+      {% endif %}
+
+      {% if show_otp %}
+      <div class="otp">
+        <div class="helper">Enter the 6-digit code sent to your email or phone.</div>
+        <div class="field">
+          <label for="otp">One-time code</label>
+          <input id="otp" type="text" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" class="input otp-input" placeholder="••••••" />
+        </div>
+        <div class="actions otp-actions">
+          <button id="verifyBtn" class="btn" type="button" disabled>Verify Code</button>
+          <button id="resendBtn" class="btn secondary" type="button" disabled>Resend (30s)</button>
+        </div>
+        <div id="otpStatus" class="notice" style="display:none;" role="status"></div>
+      </div>
+      {% endif %}
+    </form>
+
+    <div class="footer">
+      <small>Remembered your password? <a class="link" href="{{ url_for('login') }}">Log in</a></small>
+      <small>Need an account? <a class="link" href="{{ url_for('register') }}">Register</a></small>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const form = document.getElementById('recoveryForm');
+      const identifier = document.getElementById('identifier');
+      const clientError = document.getElementById('clientError');
+      const clientErrorText = clientError ? clientError.querySelector('li') : null;
+
+      function showClientError(msg) {
+        if (!clientError || !clientErrorText) return;
+        if (!msg) {
+          clientError.style.display = 'none';
+          clientErrorText.textContent = '';
+          return;
+        }
+        clientErrorText.textContent = msg;
+        clientError.style.display = 'block';
+      }
+
+      if (form) {
+        form.addEventListener('submit', function (e) {
+          const val = (identifier && identifier.value ? identifier.value : '').trim();
+          if (!val) {
+            e.preventDefault();
+            showClientError('Username or email is required.');
+            return;
+          }
+          if (val.includes('@')) {
+            const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+            if (!emailOk) {
+              e.preventDefault();
+              showClientError('Enter a valid email address.');
+              return;
+            }
+          }
+          showClientError('');
+        });
+      }
+
+      const otp = document.getElementById('otp');
+      const verifyBtn = document.getElementById('verifyBtn');
+      const resendBtn = document.getElementById('resendBtn');
+      const otpStatus = document.getElementById('otpStatus');
+
+      function updateVerify() {
+        if (!otp || !verifyBtn) return;
+        const v = (otp.value || '').replace(/\D/g, '');
+        otp.value = v;
+        verifyBtn.disabled = v.length !== 6;
+      }
+
+      if (otp) {
+        otp.addEventListener('input', updateVerify);
+      }
+
+      if (verifyBtn) {
+        verifyBtn.addEventListener('click', function () {
+          const v = (otp && otp.value ? otp.value : '').trim();
+          if (v.length !== 6) return;
+          if (otpStatus) {
+            otpStatus.textContent = 'Verification successful. You can proceed once recovery is enabled.';
+            otpStatus.style.display = 'block';
+          }
+        });
+      }
+
+      if (resendBtn) {
+        let remaining = 30;
+        const tick = function () {
+          remaining -= 1;
+          if (remaining <= 0) {
+            resendBtn.disabled = false;
+            resendBtn.textContent = 'Resend code';
+            return;
+          }
+          resendBtn.textContent = 'Resend (' + remaining + 's)';
+          setTimeout(tick, 1000);
+        };
+        setTimeout(tick, 1000);
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Defects Management - Surveyor.AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/users.css') }}" />
+    <style>
+      .filters-container {
+        padding: 20px;
+      }
+      .filters-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .search-box {
+        width: 100%;
+      }
+      .filter-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 15px;
+        align-items: flex-end;
+      }
+      .control-input {
+        width: 100%;
+      }
+      /* Ensure actions stay at the end and don't overlap */
+      .filter-row .actions {
+        display: flex;
+        gap: 10px;
+        grid-column: auto;
+      }
+      .unsure-subfilter {
+        display: none;
+        margin-top: 8px;
+        padding: 10px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+      }
+      .unsure-subfilter.active {
+        display: block;
+      }
+      .badge--pending { background: #fef3c7; color: #92400e; }
+      .badge--rejected { background: #fee2e2; color: #991b1b; }
+      .badge--confirmed { background: #dcfce7; color: #166534; }
+      .badge--user { background: #e0f2fe; color: #075985; }
+      .detected-as { font-size: 11px; color: #64748b; display: block; margin-top: 2px; }
+      .timestamp { font-size: 12px; color: #64748b; font-weight: 600; }
+      .table-wrap.tall { height: 650px; }
+      
+      /* Avoid overlap by ensuring grid items have enough space */
+      #unsureContainer {
+        display: none;
+      }
+      #unsureContainer.active {
+        display: grid;
+      }
+      
+      @media (max-width: 1024px) {
+        .filter-row {
+          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        }
+      }
+      @media (max-width: 768px) {
+        .filter-row {
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        }
+        .filter-row .actions {
+          grid-column: 1 / -1;
+          justify-content: flex-end;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">SURVEYOR.AI</div>
+        <div style="margin-left:auto; margin-right:12px; position:relative;">
+          <button id="notifBtn" style="background:none; border:none; width:40px; height:40px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; position:relative;">
+            <img src="{{ url_for('static', filename='icons/bell.svg') }}" width="24" height="24" alt="Notifications" style="filter: brightness(0) invert(1);" />
+            <div id="notifBadge" style="position:absolute; top:6px; right:6px; width:10px; height:10px; background:#ef4444; border:2px solid #556276; border-radius:50%; display:none;"></div>
+          </button>
+          <div id="notifPopup" style="display:none; position:absolute; right:0; top:50px; width:320px; background:#fff; border:1px solid #cbd5e1; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:1000; overflow:hidden;">
+            <div style="padding:12px 16px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+              <div style="font-weight:700; color:#0f172a; font-size:14px;">Notifications</div>
+              <button id="markAllReadBtn" style="background:none; border:none; color:#3b82f6; font-size:12px; font-weight:600; cursor:pointer; display:none;">Mark all read</button>
+            </div>
+            <div id="notifList" style="max-height:300px; overflow-y:auto;">
+              <div style="padding:20px; text-align:center; color:#64748b; font-size:13px;">No new notifications</div>
+            </div>
+          </div>
+        </div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <nav class="nav">
+          <a href="/index">Survey</a>
+          <a href="/map">Map</a>
+          <a href="/users">User management</a>
+          <a class="active" href="/defects">Defects Management</a>
+          <a href="/settings">Settings</a>
+          <a href="/admin/backups">Backup Management</a>
+          <a href="/analytics">Analytics</a>
+          <a href="/logout">Log Out</a>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <div class="page">
+          <div class="page-header">
+            <div>
+              <div class="title">Defects Management</div>
+              <div class="subtitle">Registry of user reports and system detections</div>
+            </div>
+            <div class="count">Showing {{ start }}–{{ end }} of {{ total }}</div>
+          </div>
+
+          <div class="controls card filters-container">
+            <form id="filterForm" class="controls-inner" method="get" action="{{ url_for('defects_page') }}">
+              <div class="filters-grid">
+                <!-- Top Row: Search -->
+                <div class="search-box">
+                  <div class="control">
+                    <label class="control-label" for="q">Search Defects</label>
+                    <input id="q" class="control-input" type="text" name="q" value="{{ q or '' }}" placeholder="Search by defect type, submitted by, or coordinates..." />
+                  </div>
+                </div>
+
+                <!-- Bottom Row: All Selectors and Buttons -->
+                <div class="filter-row">
+                  <div class="control">
+                    <label class="control-label" for="type">Category</label>
+                    <select id="type" class="control-input" name="type" onchange="toggleUnsureSubfilter()">
+                      <option value="" {% if not type_filter %}selected{% endif %}>All Categories</option>
+                      <option value="pothole" {% if type_filter == 'pothole' %}selected{% endif %}>Pothole</option>
+                      <option value="crack" {% if type_filter == 'crack' %}selected{% endif %}>Road Crack</option>
+                      <option value="unsure" {% if type_filter == 'unsure' %}selected{% endif %}>Unsure (AI)</option>
+                    </select>
+                  </div>
+
+                  <div id="unsureContainer" class="control {% if type_filter == 'unsure' %}active{% endif %}" style="{% if type_filter != 'unsure' %}display:none;{% else %}display:grid;{% endif %}">
+                    <label class="control-label" for="unsure">Unsure Status</label>
+                    <select id="unsure" class="control-input" name="unsure">
+                      <option value="" {% if not unsure_filter %}selected{% endif %}>All Unsure</option>
+                      <option value="unvalidated" {% if unsure_filter == 'unvalidated' %}selected{% endif %}>Unvalidated (Pending)</option>
+                      <option value="validated" {% if unsure_filter == 'validated' %}selected{% endif %}>Validated (Confirmed)</option>
+                      <option value="rejected" {% if unsure_filter == 'rejected' %}selected{% endif %}>Rejected</option>
+                    </select>
+                  </div>
+
+                  <div class="control">
+                    <label class="control-label" for="source">Source</label>
+                    <select id="source" class="control-input" name="source">
+                      <option value="" {% if not source_filter %}selected{% endif %}>All Sources</option>
+                      <option value="user" {% if source_filter == 'user' %}selected{% endif %}>User Submitted</option>
+                      <option value="system" {% if source_filter == 'system' %}selected{% endif %}>System Detected</option>
+                    </select>
+                  </div>
+
+                  <div class="control">
+                    <label class="control-label" for="status">Fixed Status</label>
+                    <select id="status" class="control-input" name="status">
+                      <option value="" {% if not status_filter %}selected{% endif %}>All Status</option>
+                      <option value="open" {% if status_filter == 'open' %}selected{% endif %}>Not Fixed (Open)</option>
+                      <option value="fixed" {% if status_filter == 'fixed' %}selected{% endif %}>Fixed</option>
+                    </select>
+                  </div>
+
+                  <div class="control">
+                    <label class="control-label" for="start_date">From</label>
+                    <input id="start_date" class="control-input" type="date" name="start_date" value="{{ start_date or '' }}" />
+                  </div>
+                  
+                  <div class="control">
+                    <label class="control-label" for="end_date">To</label>
+                    <input id="end_date" class="control-input" type="date" name="end_date" value="{{ end_date or '' }}" />
+                  </div>
+
+                  <div class="control">
+                    <label class="control-label" for="sort">Sort By</label>
+                    <select id="sort" class="control-input" name="sort">
+                      <option value="date_desc" {% if sort == 'date_desc' %}selected{% endif %}>Date (Newest)</option>
+                      <option value="date_asc" {% if sort == 'date_asc' %}selected{% endif %}>Date (Oldest)</option>
+                      <option value="reported_desc" {% if sort == 'reported_desc' %}selected{% endif %}>Reported/Detected (Newest)</option>
+                      <option value="reported_asc" {% if sort == 'reported_asc' %}selected{% endif %}>Reported/Detected (Oldest)</option>
+                      <option value="status_updated_desc" {% if sort == 'status_updated_desc' %}selected{% endif %}>Last Status Update (Newest)</option>
+                      <option value="status_updated_asc" {% if sort == 'status_updated_asc' %}selected{% endif %}>Last Status Update (Oldest)</option>
+                      <option value="type" {% if sort == 'type' %}selected{% endif %}>Type</option>
+                      <option value="source" {% if sort == 'source' %}selected{% endif %}>Source</option>
+                      <option value="status" {% if sort == 'status' %}selected{% endif %}>Status</option>
+                    </select>
+                  </div>
+
+                  <div class="control actions">
+                    <button class="btn" type="submit">Apply</button>
+                    <a class="btn secondary" href="{{ url_for('defects_page') }}">Reset</a>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="table-wrap tall">
+              <table class="table" aria-label="Defects table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Fixed</th>
+                    <th>Type</th>
+                    <th>Coordinates</th>
+                    <th>Source</th>
+                    <th>Review Status</th>
+                    <th>Submitted By</th>
+                    <th>Reported / Detected At</th>
+                    <th>Last Status Update</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% if items and items|length > 0 %}
+                    {% for item in items %}
+                      <tr>
+                        <td class="mono">{{ item.id }}</td>
+                        <td>
+                          {% if item.is_fixed %}
+                            <span class="badge badge--active">Fixed</span>
+                          {% else %}
+                            <span class="badge badge--suspended">Open</span>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {% if 'pothole' in (item.type|lower) %}
+                            <span class="badge badge--suspended">Pothole</span>
+                          {% elif 'crack' in (item.type|lower) %}
+                            <span class="badge badge--locked">Crack</span>
+                          {% else %}
+                            <span class="badge">{{ item.type }}</span>
+                          {% endif %}
+                          {% if item.detected_class and item.detected_class != item.type %}
+                            <span class="detected-as">AI: {{ item.detected_class }}</span>
+                          {% endif %}
+                        </td>
+                        <td class="mono">
+                          <a href="{{ url_for('map_page', lat=item.lat, lng=item.lon) }}" class="coords-link" title="View on map">
+                            {{ "%.6f"|format(item.lat) }}, {{ "%.6f"|format(item.lon) }}
+                          </a>
+                        </td>
+                        <td>
+                          {% if item.source == 'system' %}
+                            <span class="badge badge--active">System</span>
+                          {% else %}
+                            <span class="badge badge--user">User Report</span>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {% if item.source == 'system' %}
+                            {% if item.review_status == 'confirmed' %}
+                              <span class="badge badge--confirmed">Validated</span>
+                            {% elif item.review_status == 'pending' %}
+                              <span class="badge badge--pending">Unvalidated</span>
+                            {% elif item.review_status == 'rejected' %}
+                              <span class="badge badge--rejected">Rejected</span>
+                            {% else %}
+                              <span class="muted">—</span>
+                            {% endif %}
+                          {% else %}
+                            <span class="badge badge--confirmed">Verified</span>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {% if item.submitted_by %}
+                            {{ item.submitted_by }}
+                          {% else %}
+                            <span class="muted">—</span>
+                          {% endif %}
+                        </td>
+                        <td><div class="timestamp">{{ item.created_at_iso or '—' }}</div></td>
+                        <td><div class="timestamp">{{ item.status_updated_at_iso or '—' }}</div></td>
+                        <td><div class="timestamp">{{ item.created_at_iso or '—' }}</div></td>
+                      </tr>
+                    {% endfor %}
+                  {% else %}
+                    <tr>
+                      <td colspan="10" class="empty">No defects found matching your criteria.</td>
+                    </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="pagination">
+            <div class="range">Showing {{ start }}–{{ end }} of {{ total }}</div>
+
+            <div class="pager">
+              <a class="page-btn" href="{{ url_for('defects_page', q=q, type=type_filter, unsure=unsure_filter, source=source_filter, status=status_filter, sort=sort, per_page=per_page, page=1) }}">First</a>
+              <a class="page-btn" href="{{ url_for('defects_page', q=q, type=type_filter, unsure=unsure_filter, source=source_filter, status=status_filter, sort=sort, per_page=per_page, page=(page-1 if page>1 else 1)) }}">Prev</a>
+
+              {% set start_page = (page - 2) if (page - 2) > 1 else 1 %}
+              {% set end_page = (page + 2) if (page + 2) < pages else pages %}
+              {% for p in range(start_page, end_page + 1) %}
+                <a class="page-num {% if p == page %}active{% endif %}" href="{{ url_for('defects_page', q=q, type=type_filter, unsure=unsure_filter, source=source_filter, status=status_filter, sort=sort, per_page=per_page, page=p) }}">{{ p }}</a>
+              {% endfor %}
+
+              <a class="page-btn" href="{{ url_for('defects_page', q=q, type=type_filter, unsure=unsure_filter, source=source_filter, status=status_filter, sort=sort, per_page=per_page, page=(page+1 if page<pages else pages)) }}">Next</a>
+              <a class="page-btn" href="{{ url_for('defects_page', q=q, type=type_filter, unsure=unsure_filter, source=source_filter, status=status_filter, sort=sort, per_page=per_page, page=pages) }}">Last</a>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      function toggleUnsureSubfilter() {
+        const typeSelect = document.getElementById('type');
+        const unsureContainer = document.getElementById('unsureContainer');
+        if (typeSelect.value === 'unsure') {
+          unsureContainer.style.display = 'grid';
+          unsureContainer.classList.add('active');
+        } else {
+          unsureContainer.style.display = 'none';
+          unsureContainer.classList.remove('active');
+          document.getElementById('unsure').value = '';
+        }
+      }
+    </script>
+    <script>
+      (function() {
+        // Notifications Logic
+        const notifBtn = document.getElementById('notifBtn');
+        const notifBadge = document.getElementById('notifBadge');
+        const notifPopup = document.getElementById('notifPopup');
+        const notifList = document.getElementById('notifList');
+        const markAllReadBtn = document.getElementById('markAllReadBtn');
+        let notifOpen = false;
+
+        async function fetchNotifications() {
+          try {
+            const res = await fetch('/notifications/unread');
+            const data = await res.json();
+            const items = data.items || [];
+            
+            if (data.count > 0) {
+              notifBadge.style.display = 'block';
+              markAllReadBtn.style.display = 'block';
+            } else {
+              notifBadge.style.display = 'none';
+              markAllReadBtn.style.display = 'none';
+            }
+            
+            if (items.length === 0) {
+              notifList.innerHTML = '<div style="padding:20px; text-align:center; color:#64748b; font-size:13px;">No new notifications</div>';
+            } else {
+              notifList.innerHTML = items.map(n => `
+                <div style="padding:12px 16px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.2s;" 
+                     onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'"
+                     onclick="handleNotifClick(${n.id}, '${n.link || ''}')">
+                  <div style="font-weight:600; font-size:13px; color:#0f172a; margin-bottom:4px;">${n.title}</div>
+                  <div style="font-size:12px; color:#475569; line-height:1.4;">${n.message}</div>
+                  <div style="font-size:11px; color:#94a3b8; margin-top:6px;">${n.created_at_iso}</div>
+                </div>
+              `).join('');
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }
+
+        window.handleNotifClick = async function(id, link) {
+          try {
+            await fetch(`/notifications/mark-read/${id}`, { method: 'POST' });
+            if (link) window.location.href = link;
+            else fetchNotifications();
+          } catch (e) {}
+        };
+
+        markAllReadBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          try {
+            await fetch('/notifications/mark-all-read', { method: 'POST' });
+            fetchNotifications();
+          } catch (e) {}
+        });
+
+        notifBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          notifOpen = !notifOpen;
+          notifPopup.style.display = notifOpen ? 'block' : 'none';
+          if (notifOpen) fetchNotifications();
+        });
+
+        document.addEventListener('click', (e) => {
+          if (notifOpen && !notifPopup.contains(e.target) && !notifBtn.contains(e.target)) {
+            notifOpen = false;
+            notifPopup.style.display = 'none';
+          }
+        });
+
+        // Poll notifications every 30s
+        fetchNotifications();
+        setInterval(fetchNotifications, 30000);
+      })();
+    </script>
+  </body>
+</html>

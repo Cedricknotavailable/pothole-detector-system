@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Log in</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body>
+  <div class="card" role="region" aria-label="Login form">
+    <form class="card-inner" method="post" action="{{ url_for('login') }}" novalidate>
+      <div class="field">
+        <label for="username">Username or Email</label>
+        <input id="username" name="username" type="text" class="input" placeholder="Enter username or email" autocomplete="username" value="{{ (values.get('username') if values else '') }}" />
+        {% if field_errors and field_errors.username %}
+        <div class="field-error">
+          <ul>
+            {% for e in field_errors.username %}
+            <li>{{ e }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" class="input" placeholder="Password" autocomplete="current-password" />
+        {% if field_errors and field_errors.password %}
+        <div class="field-error">
+          <ul>
+            {% for e in field_errors.password %}
+            <li>{{ e }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="actions">
+        <button class="btn" type="submit">Log in</button>
+      </div>
+    </form>
+
+    <div class="footer">
+      <small>Don't have an account? <a class="link" href="{{ url_for('register') }}">Register</a></small>
+      <small><a class="link" href="{{ url_for('recover') }}">Forgot Password?</a></small>
+    </div>
+  </div>
+</body>
+</html>

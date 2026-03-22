@@ -1,0 +1,8 @@
+Flask
+Flask-SQLAlchemy
+opencv-python
+ultralytics
+pyserial
+Werkzeug
+SQLAlchemy
+b2sdk
