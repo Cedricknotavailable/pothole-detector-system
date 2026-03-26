@@ -9,9 +9,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/users.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/my_reports.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-nav.css') }}" />
   </head>
   <body>
     <header class="topbar">
+      <button class="hamburger" aria-label="Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
       <div class="brand">SURVEYOR.AI</div>
       <a href="/notifications" style="margin-left:auto; margin-right:12px; position:relative; display:flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:8px; text-decoration:none;" title="Notifications">
         <img src="{{ url_for('static', filename='icons/bell.svg') }}" width="24" height="24" alt="Notifications" style="filter: brightness(0) invert(1);" />
@@ -20,6 +26,22 @@
         {% endif %}
       </a>
     </header>
+
+    <nav class="mobile-nav" aria-label="Main navigation">
+        <div class="mobile-nav-overlay"></div>
+        <div class="mobile-nav-content">
+            <div class="mobile-nav-header">
+                <div class="brand">SURVEYOR.AI</div>
+                <button class="mobile-nav-close" aria-label="Close menu">×</button>
+            </div>
+            <div class="mobile-nav-links">
+                <a href="/map">Map</a>
+                <a href="/reports">Submit report</a>
+                <a class="active" href="/my-reports">My reports</a>
+                <a href="/logout">Log Out</a>
+            </div>
+        </div>
+    </nav>
 
     <div class="layout">
       <aside class="sidebar">
@@ -188,6 +210,73 @@
                 </tbody>
               </table>
             </div>
+
+            <!-- Mobile Card View (hidden on desktop) -->
+            <div class="report-cards" style="display: none;">
+              {% if reports and reports|length > 0 %}
+                {% for r in reports %}
+                  <div class="report-card">
+                    <div class="report-card-header">
+                      <a class="report-card-thumb" 
+                         {% if r.photo_path %}href="{{ url_for('static', filename=r.photo_path) }}" target="_blank" rel="noopener"{% endif %}>
+                        {% if r.photo_path %}
+                          <img src="{{ url_for('static', filename=r.photo_path) }}" alt="Evidence">
+                        {% else %}
+                          <span>No Img</span>
+                        {% endif %}
+                      </a>
+                      <div class="report-card-info">
+                        <div class="report-card-type">{{ r.obstruction_type or 'Unknown' }}</div>
+                        <div class="report-card-date">{{ r.created_at_iso }}</div>
+                      </div>
+                      {% if r.is_fixed %}
+                        <span class="badge badge--active">Fixed</span>
+                      {% endif %}
+                    </div>
+                    <div class="report-card-body">
+                      <div class="report-card-row">
+                        <span class="label">Location:</span>
+                        {% if r.latitude is not none and r.longitude is not none %}
+                          <a href="{{ url_for('map_page', lat=r.latitude, lng=r.longitude) }}" class="coords-link">
+                            {{ '%.5f'|format(r.latitude) }}, {{ '%.5f'|format(r.longitude) }}
+                          </a>
+                        {% else %}
+                          <span style="color: #94a3b8;">No location</span>
+                        {% endif %}
+                      </div>
+                      <div class="report-card-row">
+                        <span class="label">Updated:</span>
+                        <span>
+                          {% if r.status_updated_at and r.status_updated_at != r.created_at %}
+                            {{ r.status_updated_at_iso }}
+                          {% else %}
+                            <span style="color: #94a3b8;">-</span>
+                          {% endif %}
+                        </span>
+                      </div>
+                      <div class="report-card-row">
+                        <span class="label">Reactions:</span>
+                        <div class="reaction-pill">
+                          <span>👍 {{ r.thumbs_up_count }}</span>
+                          <span style="color:#cbd5e1">|</span>
+                          <span>👎 {{ r.thumbs_down_count }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {% if not r.is_fixed %}
+                      <div class="report-card-actions">
+                        <button class="mini-btn warn" onclick="markAsFixed({{ r.id }})">Mark Fixed</button>
+                      </div>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              {% else %}
+                <div style="padding: 32px; text-align: center;">
+                  <div style="font-size: 14px; color: #64748b; margin-bottom: 16px;">No reports submitted yet.</div>
+                  <a href="/reports" class="btn primary">Submit a Report</a>
+                </div>
+              {% endif %}
+            </div>
           </div>
 
           <div class="pagination">
@@ -229,5 +318,6 @@
           }
       }
     </script>
+    <script src="{{ url_for('static', filename='js/mobile-nav.js') }}"></script>
   </body>
 </html>

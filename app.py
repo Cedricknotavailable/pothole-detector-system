@@ -1401,6 +1401,9 @@ def reset_password():
         user.set_password(new_password)
         db.session.commit()
         
+        # Log password reset
+        write_audit_log('PASSWORD_RESET', 'user', int(user.id), {'username': user.username, 'email': user.email})
+        
         # Clear session
         session.pop('otp_verified', None)
         session.pop('reset_user_id', None)
@@ -1616,7 +1619,7 @@ def b2_backup():
     _validate_csrf()
     
     if not B2_DEPS_AVAILABLE:
-        return redirect(url_for('settings_page'))
+        return redirect(url_for('settings_page', error_msg='Backblaze B2 dependencies are not installed.'))
         
     # Get creds
     s_key_id = Settings.query.filter_by(key='b2_key_id').first()
@@ -1624,7 +1627,7 @@ def b2_backup():
     s_bucket = Settings.query.filter_by(key='b2_bucket_name').first()
     
     if not s_key_id or not s_app_key or not s_bucket:
-        return redirect(url_for('settings_page'))
+        return redirect(url_for('settings_page', error_msg='Backblaze B2 is not configured.'))
         
     try:
         info = InMemoryAccountInfo()
@@ -1633,9 +1636,12 @@ def b2_backup():
         bucket = b2_api.get_bucket_by_name(s_bucket.value)
         
         # Backup file
-        db_path = os.path.join(app.root_path, 'users.db')
+        db_path = os.path.join(app.root_path, 'instance', 'users.db')
         if not os.path.exists(db_path):
-             db_path = 'users.db' 
+            db_path = os.path.join(app.root_path, 'users.db')
+        
+        if not os.path.exists(db_path):
+            return redirect(url_for('settings_page', error_msg='Database file not found.'))
              
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         backup_name = f"backup_users_{timestamp}.db"
@@ -1646,9 +1652,13 @@ def b2_backup():
             file_infos={'author': current_user.username}
         )
         
-        return redirect(url_for('settings_page', success_msg=f'Backup created successfully: {backup_name}'))
+        # Log the backup
+        write_audit_log('BACKUP_EXPORTED', 'system', current_user.id, {'filename': backup_name, 'destination': 'Backblaze B2'})
+        
+        return redirect(url_for('settings_page', success_msg=f'Backup uploaded successfully to Backblaze B2: {backup_name}'))
     except Exception as e:
-        return redirect(url_for('settings_page')) 
+        return redirect(url_for('settings_page', error_msg=f'Backup failed: {str(e)}'))
+ 
 
 @app.route('/settings/b2/restore', methods=['POST'])
 def b2_restore():
@@ -1657,14 +1667,14 @@ def b2_restore():
     
     file_id = request.form.get('file_id')
     if not file_id:
-        return redirect(url_for('settings_page'))
+        return redirect(url_for('settings_page', error_msg='No backup file selected.'))
         
     s_key_id = Settings.query.filter_by(key='b2_key_id').first()
     s_app_key = Settings.query.filter_by(key='b2_app_key').first()
     s_bucket = Settings.query.filter_by(key='b2_bucket_name').first()
     
     if not s_key_id or not s_app_key or not s_bucket:
-        return redirect(url_for('settings_page'))
+        return redirect(url_for('settings_page', error_msg='Backblaze B2 is not configured.'))
         
     try:
         info = InMemoryAccountInfo()
@@ -1683,10 +1693,11 @@ def b2_restore():
         with open(temp_path, 'rb') as f:
             header = f.read(16)
             if b'SQLite format 3' not in header:
-                 return redirect(url_for('settings_page')) 
+                os.remove(temp_path)
+                return redirect(url_for('settings_page', error_msg='Invalid database file format.'))
         
         # Restore
-        db_path = os.path.join(app.root_path, 'users.db')
+        db_path = os.path.join(app.root_path, 'instance', 'users.db')
         
         # Close DB connection
         db.session.remove()
@@ -1695,10 +1706,18 @@ def b2_restore():
         # Replace
         import shutil
         shutil.move(temp_path, db_path)
+        
+        # Log the restore
+        write_audit_log('BACKUP_RESTORED', 'system', current_user.id, {'file_id': file_id})
             
-        return redirect(url_for('settings_page', success_msg='Database restored successfully.'))
+        return redirect(url_for('settings_page', success_msg='Database restored successfully. All data has been replaced with the backup.'))
     except Exception as e:
-        return redirect(url_for('settings_page'))
+        # Clean up temp file if it exists
+        temp_path = os.path.join(app.root_path, 'restore_temp.db')
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        return redirect(url_for('settings_page', error_msg=f'Restore failed: {str(e)}'))
+
 
 
 @app.route('/admin/backups')

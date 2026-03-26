@@ -1,2 +1,5 @@
 {"user":"testuser1","operation":"export","filename":"backup_20260311_225836.db","timestamp":1773241119,"status":"success"}
 {"user":"testuser1","operation":"export","filename":"backup_20260312_110631.db","timestamp":1773284802,"status":"success"}
+{"user":"testuser1","operation":"import","filename":"backup_20260326_054702.db","timestamp":1774504441,"status":"success"}
+{"user":"testuser1","operation":"import","filename":"backup_20260326_054702.db","timestamp":1774504688,"status":"success"}
+{"user":"testuser1","operation":"import","filename":"backup_20260326_054702.db","timestamp":1774504713,"status":"success"}

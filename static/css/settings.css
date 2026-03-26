@@ -26,11 +26,97 @@
 
 /* Audit Log */
 .audit-filters-bar { margin-bottom: 0; }
-.audit-control-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr auto; gap: 10px; align-items: flex-end; }
-.audit-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-top: 1px solid #f1f5f9; }
-.audit-detail-cell { font-size: 12px; color: #475569; max-width: 260px; white-space: normal; line-height: 1.5; }
-.audit-detail-kv { display: inline-block; margin-right: 8px; }
-.audit-badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; border: 1px solid transparent; white-space: nowrap; }
+.audit-control-row { 
+  display: grid; 
+  grid-template-columns: 1.2fr 1fr 1fr 1fr auto; 
+  gap: 10px; 
+  align-items: flex-end; 
+}
+.audit-pagination { 
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between; 
+  gap: 12px; 
+  padding: 12px 14px; 
+  border-top: 1px solid #f1f5f9; 
+  flex-wrap: wrap;
+}
+.audit-pagination .range {
+  font-size: 13px;
+  color: #64748b;
+  white-space: nowrap;
+}
+.audit-pagination .pager {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.audit-pagination .page-btn,
+.audit-pagination .page-num {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  transition: all 0.2s;
+}
+.audit-pagination .page-btn:hover,
+.audit-pagination .page-num:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+.audit-pagination .page-num.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* Audit table improvements */
+#auditTable {
+  table-layout: fixed;
+  width: 100%;
+}
+#auditTable th,
+#auditTable td {
+  padding: 12px 10px;
+  vertical-align: top;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+#auditTable th:nth-child(1) { width: 140px; } /* Timestamp */
+#auditTable th:nth-child(2) { width: 120px; } /* Actor */
+#auditTable th:nth-child(3) { width: 160px; } /* Action */
+#auditTable th:nth-child(4) { width: 110px; } /* Resource */
+#auditTable th:nth-child(5) { width: auto; min-width: 200px; } /* Detail */
+#auditTable th:nth-child(6) { width: 120px; } /* IP Address */
+
+.audit-detail-cell { 
+  font-size: 12px; 
+  color: #475569; 
+  white-space: normal; 
+  line-height: 1.5;
+  word-break: break-word;
+}
+.audit-detail-kv { 
+  display: inline-block; 
+  margin-right: 8px;
+  margin-bottom: 4px;
+}
+.audit-badge { 
+  display: inline-flex; 
+  align-items: center; 
+  padding: 4px 10px; 
+  border-radius: 999px; 
+  font-size: 11px; 
+  font-weight: 700; 
+  text-transform: uppercase; 
+  letter-spacing: .04em; 
+  border: 1px solid transparent; 
+  white-space: nowrap; 
+}
 .audit-badge--auth     { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
 .audit-badge--user     { background: #faf5ff; border-color: #e9d5ff; color: #7e22ce; }
 .audit-badge--report   { background: #fff7ed; border-color: #fed7aa; color: #c2410c; }
@@ -38,6 +124,170 @@
 .audit-badge--settings { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
 .audit-badge--backup   { background: #f8fafc; border-color: #cbd5e1; color: #475569; }
 
+@media (max-width: 1200px) {
+  #auditTable th:nth-child(1) { width: 130px; }
+  #auditTable th:nth-child(2) { width: 100px; }
+  #auditTable th:nth-child(3) { width: 140px; }
+  #auditTable th:nth-child(4) { width: 100px; }
+  #auditTable th:nth-child(6) { width: 110px; }
+}
+
 @media (max-width: 860px) {
   .audit-control-row { grid-template-columns: 1fr 1fr; }
+  
+  /* Stack table on mobile */
+  #auditTable thead { display: none; }
+  #auditTable, #auditTable tbody, #auditTable tr, #auditTable td {
+    display: block;
+    width: 100%;
+  }
+  #auditTable tr {
+    margin-bottom: 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+    background: #f8fafc;
+  }
+  #auditTable td {
+    padding: 6px 0;
+    border: none;
+    text-align: left;
+  }
+  #auditTable td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    display: inline-block;
+    margin-right: 8px;
+    color: #475569;
+  }
 }
+
+/* Modal Styles */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  position: relative;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 480px;
+  width: 90%;
+  animation: slideUp 0.3s ease-out;
+  overflow: hidden;
+}
+
+.modal-header {
+  padding: 32px 32px 24px;
+  text-align: center;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.modal-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #10b981;
+  color: #fff;
+  font-size: 32px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+}
+
+.modal-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.modal-body {
+  padding: 24px 32px;
+}
+
+.modal-body p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #475569;
+  text-align: center;
+}
+
+.modal-footer {
+  padding: 20px 32px 32px;
+  text-align: center;
+}
+
+.modal-footer .action-btn {
+  min-width: 120px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 520px) {
+  .modal-content {
+    width: 95%;
+    max-width: none;
+  }
+  
+  .modal-header {
+    padding: 24px 20px 20px;
+  }
+  
+  .modal-icon {
+    width: 56px;
+    height: 56px;
+    font-size: 28px;
+  }
+  
+  .modal-title {
+    font-size: 20px;
+  }
+  
+  .modal-body {
+    padding: 20px;
+  }
+  
+  .modal-footer {
+    padding: 16px 20px 24px;
+  }
+}
+

@@ -120,7 +120,7 @@
                   </div>
 
                   <div style="margin-top:20px; text-align:right;">
-                    <button type="submit" class="action-btn btn-danger" id="importBtn" onclick="return confirm('⚠️ CRITICAL WARNING ⚠️\n\nRestoring a backup will COMPLETELY ERASE and REPLACE the current database.\n\nAre you sure you want to proceed?');">
+                    <button type="submit" class="action-btn btn-danger" id="importBtn">
                       <span>🔄</span> Restore Database
                     </button>
                   </div>
@@ -179,7 +179,55 @@
       <div class="loading-text">Processing... Please wait.</div>
     </div>
 
+    <!-- Success/Error Modal -->
+    <div id="restoreModal" class="modal" style="display:none;">
+      <div class="modal-overlay" onclick="closeRestoreModal()"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="modal-icon" id="modalIcon">✓</div>
+          <h3 class="modal-title" id="modalTitle">Operation Complete</h3>
+        </div>
+        <div class="modal-body">
+          <p id="modalMessage">The operation completed successfully.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="action-btn btn-primary" onclick="closeRestoreModal()">OK</button>
+        </div>
+      </div>
+    </div>
+
     <script>
+      // Modal functions
+      function showRestoreModal(success, title, message) {
+        const modal = document.getElementById('restoreModal');
+        const icon = document.getElementById('modalIcon');
+        const titleEl = document.getElementById('modalTitle');
+        const messageEl = document.getElementById('modalMessage');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        
+        // Hide loading overlay
+        loadingOverlay.style.display = 'none';
+        
+        if (success) {
+          icon.textContent = '✓';
+          icon.style.background = '#10b981';
+          titleEl.textContent = title || 'Success';
+        } else {
+          icon.textContent = '✕';
+          icon.style.background = '#ef4444';
+          titleEl.textContent = title || 'Error';
+        }
+        
+        messageEl.textContent = message;
+        modal.style.display = 'flex';
+      }
+      
+      function closeRestoreModal() {
+        document.getElementById('restoreModal').style.display = 'none';
+        // Reload page to show updated data
+        window.location.reload();
+      }
+
       // File Input Handling
       const fileInput = document.getElementById('fileInput');
       const fileName = document.getElementById('fileName');
@@ -225,15 +273,48 @@
       // Loading State
       const forms = document.querySelectorAll('form');
       const loadingOverlay = document.getElementById('loadingOverlay');
+      const importForm = document.getElementById('importForm');
+      const exportForm = document.getElementById('exportForm');
 
-      forms.forEach(form => {
-        form.addEventListener('submit', (e) => {
-          // Allow confirm dialog to block first
-          // If import form, confirm is inline onclick, but we should double check
-          // Ideally confirm logic should be here, but inline is fine for now.
-          // Show loading
-          loadingOverlay.style.display = 'flex';
-        });
+      // Handle import form with AJAX
+      importForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        // Confirm dialog
+        const confirmed = confirm('⚠️ CRITICAL WARNING ⚠️\n\nRestoring a backup will COMPLETELY ERASE and REPLACE the current database.\n\nAre you sure you want to proceed?');
+        if (!confirmed) return;
+        
+        // Show loading
+        loadingOverlay.style.display = 'flex';
+        
+        try {
+          const formData = new FormData(importForm);
+          const response = await fetch(importForm.action, {
+            method: 'POST',
+            body: formData
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+            showRestoreModal(true, 'Database Restored', data.message || 'Database restored successfully. All data has been replaced with the backup.');
+          } else {
+            showRestoreModal(false, 'Restore Failed', data.message || 'Failed to restore database. Please try again.');
+          }
+        } catch (error) {
+          console.error('Restore error:', error);
+          showRestoreModal(false, 'Restore Failed', 'An unexpected error occurred. Please check the backup file and try again.');
+        }
+      });
+
+      // Handle export form normally (downloads file)
+      exportForm.addEventListener('submit', (e) => {
+        loadingOverlay.style.display = 'flex';
+        // Let form submit normally for file download
+        // Hide loading after a delay
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+        }, 2000);
       });
     </script>
   </body>

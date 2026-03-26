@@ -19,3 +19,54 @@
 .location-group { position: relative; }
 .location-btn { position: absolute; right: 8px; top: 32px; background: transparent; border: none; color: var(--accent); font-weight: 700; font-size: 12px; cursor: pointer; padding: 4px 8px; display: flex; align-items: center; gap: 4px; }
 .location-btn:hover { text-decoration: underline; }
+
+/* Mobile responsive layout */
+@media (max-width: 640px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .control-input,
+    .control-label {
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+    
+    .control-input {
+        min-height: 48px;
+        padding: 12px 16px;
+    }
+    
+    #getLocationBtn {
+        width: 100%;
+        justify-content: center;
+        min-height: 48px;
+        padding: 12px 16px;
+        font-size: 15px;
+        background: #eff6ff;
+        border: 1px solid var(--accent);
+        border-radius: 8px;
+        margin-top: 8px;
+    }
+    
+    .upload-box {
+        padding: 32px 16px;
+        min-height: 120px;
+    }
+    
+    .btn-primary {
+        min-height: 52px;
+        font-size: 16px;
+        font-weight: 700;
+    }
+    
+    .page {
+        max-width: 100% !important;
+    }
+    
+    .card {
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+    }
+}

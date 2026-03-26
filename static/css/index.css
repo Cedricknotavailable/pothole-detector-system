@@ -28,7 +28,60 @@
 .btn-red:hover { background: #dc2626; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-@media (max-width: 1024px) {
+/* Mobile responsive layout */
+@media (max-width: 768px) {
+    .main-inner { 
+        grid-template-columns: 1fr; 
+        gap: 16px;
+    }
+    
+    .log-panel { 
+        order: -1; 
+        height: auto;
+        max-height: 400px;
+    }
+    
+    .panel {
+        aspect-ratio: 4/3;
+    }
+    
+    #videoStream {
+        aspect-ratio: 4/3;
+        object-fit: cover;
+    }
+    
+    .actions {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .camera-select,
+    .btn {
+        width: 100%;
+        min-height: 48px;
+        height: 48px;
+    }
+    
+    .gps-indicator {
+        width: 48px;
+        height: 48px;
+    }
+    
+    .gps-indicator img {
+        width: 48px;
+        height: 48px;
+    }
+    
+    .log-item {
+        padding: 12px;
+        font-size: 14px;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
     .main-inner { grid-template-columns: 1fr; }
     .log-panel { order: -1; height: auto; }
 }
