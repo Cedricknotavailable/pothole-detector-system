@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test EmailJS</title>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script type="text/javascript">
+    (function(){
+      emailjs.init("dXcaIv5LGMTpybpw2");
+    })();
+  </script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+    .field {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      background: #3b82f6;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #2563eb;
+    }
+    #result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 4px;
+      display: none;
+    }
+    .success {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+    }
+    .error {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+  </style>
+</head>
+<body>
+  <h1>EmailJS Test Page</h1>
+  <p>Use this page to test your EmailJS configuration before using it in the app.</p>
+
+  <div class="field">
+    <label for="testEmail">Your Email Address:</label>
+    <input type="email" id="testEmail" placeholder="your@email.com" />
+  </div>
+
+  <div class="field">
+    <label for="testOTP">Test OTP Code:</label>
+    <input type="text" id="testOTP" value="123456" />
+  </div>
+
+  <button onclick="testEmailJS()">Send Test Email</button>
+
+  <div id="result"></div>
+
+  <h2>IMPORTANT: EmailJS Template Configuration</h2>
+  <div style="background: #fef3c7; border: 2px solid #f59e0b; padding: 15px; border-radius: 4px; margin: 20px 0;">
+    <h3 style="margin-top: 0;">⚠️ Fix "Recipients address is empty" error:</h3>
+    <ol>
+      <li>Go to <a href="https://dashboard.emailjs.com/admin/templates" target="_blank">EmailJS Templates Dashboard</a></li>
+      <li>Click on your template: <strong>template_tunjwkt</strong></li>
+      <li>In the template settings (top section), find the <strong>"To email"</strong> field</li>
+      <li>Set it to: <code>{{email}}</code> (with double curly braces)</li>
+      <li>Click <strong>Save</strong></li>
+      <li>Come back here and test again</li>
+    </ol>
+    <p><strong>Note:</strong> The "To email" field in template settings is DIFFERENT from the email content. This field tells EmailJS where to send the email.</p>
+  </div>
+
+  <h2>Configuration Details:</h2>
+  <ul>
+    <li><strong>Service ID:</strong> service_cs9uath</li>
+    <li><strong>Template ID:</strong> template_tunjwkt</li>
+    <li><strong>Public Key:</strong> dXcaIv5LGMTpybpw2</li>
+  </ul>
+
+  <h2>Template Parameters Being Sent:</h2>
+  <pre id="params"></pre>
+
+  <h2>Instructions:</h2>
+  <ol>
+    <li>Enter your email address above</li>
+    <li>Click "Send Test Email"</li>
+    <li>Check the browser console (F12) for detailed error messages</li>
+    <li>Check your email inbox (and spam folder)</li>
+  </ol>
+
+  <h2>Your Template Configuration:</h2>
+  <p><strong>In EmailJS Template Settings (top section):</strong></p>
+  <ul>
+    <li><strong>To email field:</strong> Must be set to <code>{{email}}</code> ← THIS IS CRITICAL!</li>
+    <li><strong>From name:</strong> Your app name (optional)</li>
+    <li><strong>Reply to:</strong> Your support email (optional)</li>
+  </ul>
+  <p><strong>In EmailJS Template Content (email body):</strong></p>
+  <ul>
+    <li><strong>OTP code variable:</strong> <code>{{otp_code}}</code></li>
+    <li><strong>Expiration variable:</strong> <code>{{expiration_minutes}}</code></li>
+    <li><strong>Email variable (for display):</strong> <code>{{email}}</code> (optional)</li>
+  </ul>
+
+  <h2>Common Issues:</h2>
+  <ul>
+    <li><strong>"Recipients address is empty":</strong> The "To email" field in your EmailJS template settings (top section) must be set to <code>{{email}}</code></li>
+    <li><strong>Template parameter mismatch:</strong> Your EmailJS template content should use: <code>{{otp_code}}</code> and <code>{{expiration_minutes}}</code></li>
+    <li><strong>Service not connected:</strong> Make sure your EmailJS service is properly connected to your email provider</li>
+    <li><strong>Template not found:</strong> Verify the template ID is correct in your EmailJS dashboard</li>
+    <li><strong>Public key invalid:</strong> Check that the public key matches your EmailJS account</li>
+  </ul>
+
+  <script>
+    async function testEmailJS() {
+      const email = document.getElementById('testEmail').value;
+      const otp = document.getElementById('testOTP').value;
+      const resultDiv = document.getElementById('result');
+      const paramsDiv = document.getElementById('params');
+
+      if (!email) {
+        alert('Please enter your email address');
+        return;
+      }
+
+      const params = {
+        email: email,  // Recipient email address
+        otp_code: otp,
+        expiration_minutes: 10
+      };
+
+      paramsDiv.textContent = JSON.stringify(params, null, 2);
+
+      resultDiv.style.display = 'block';
+      resultDiv.className = '';
+      resultDiv.textContent = 'Sending email...';
+
+      try {
+        console.log('Sending email with params:', params);
+        const response = await emailjs.send('service_cs9uath', 'template_tunjwkt', params);
+        console.log('EmailJS Success:', response);
+        
+        resultDiv.className = 'success';
+        resultDiv.innerHTML = `
+          <strong>✓ Success!</strong><br>
+          Email sent successfully. Check your inbox (and spam folder).<br>
+          <small>Status: ${response.status} - ${response.text}</small>
+        `;
+      } catch (error) {
+        console.error('EmailJS Error:', error);
+        
+        resultDiv.className = 'error';
+        resultDiv.innerHTML = `
+          <strong>✗ Error!</strong><br>
+          ${error.text || error.message || 'Unknown error'}<br>
+          <small>Check the browser console (F12) for more details.</small>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>

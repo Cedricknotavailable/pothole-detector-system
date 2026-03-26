@@ -9,6 +9,7 @@ import os
 import sqlite3
 import tempfile
 import shutil
+import secrets
 from flask_sqlalchemy import SQLAlchemy
 import re
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -240,6 +241,36 @@ def write_audit_log(action: str, resource_type: str = None, resource_id: int = N
     except Exception:
         pass
 
+
+def generate_otp() -> str:
+    """
+    Generate a cryptographically secure 6-digit OTP code.
+    
+    Returns:
+        String of exactly 6 digits with leading zeros preserved.
+    
+    Example:
+        "042857", "000123", "999999"
+    """
+    code = secrets.randbelow(1000000)
+    return f"{code:06d}"
+
+
+def cleanup_expired_otps() -> int:
+    """
+    Remove OTP records older than 1 hour.
+    
+    Returns:
+        Number of records deleted.
+    
+    Should be called periodically (e.g., via background task or before_request hook).
+    """
+    cutoff = int(time.time()) - 3600  # 1 hour ago
+    deleted = OTP.query.filter(OTP.created_at < cutoff).delete()
+    db.session.commit()
+    return deleted
+
+
 # User model for authentication (accounts only)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -380,6 +411,44 @@ class AuditLog(db.Model):
             return json.loads(self.detail) if self.detail else {}
         except Exception:
             return {}
+
+
+class OTP(db.Model):
+    """
+    Stores one-time password verification codes with expiration and attempt tracking.
+    OTP codes are hashed before storage (never stored in plaintext).
+    """
+    __tablename__ = 'otp'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), nullable=False, index=True)
+    otp_hash = db.Column(db.String(255), nullable=False)
+    purpose = db.Column(db.String(20), nullable=False)  # 'registration' or 'password_reset'
+    created_at = db.Column(db.Integer, nullable=False, default=lambda: int(time.time()))
+    expires_at = db.Column(db.Integer, nullable=False, index=True)
+    attempts = db.Column(db.Integer, nullable=False, default=0)
+    verified = db.Column(db.Boolean, nullable=False, default=False)
+    
+    __table_args__ = (
+        db.Index('idx_otp_lookup', 'email', 'purpose', 'verified'),
+    )
+    
+    def is_expired(self) -> bool:
+        """Check if OTP has exceeded 10-minute expiration window."""
+        return int(time.time()) > self.expires_at
+    
+    def is_valid(self) -> bool:
+        """Check if OTP can still be used (not expired, not verified, attempts < 3)."""
+        return not self.verified and not self.is_expired() and self.attempts < 3
+    
+    def increment_attempts(self) -> None:
+        """Increment verification attempt counter."""
+        self.attempts += 1
+    
+    def mark_verified(self) -> None:
+        """Mark OTP as successfully verified."""
+        self.verified = True
+
 
 # Ensure database tables are created safely within app context
 with app.app_context():
@@ -534,6 +603,31 @@ with app.app_context():
             ))
             db.session.execute(text("CREATE INDEX IF NOT EXISTS ix_audit_log_timestamp ON audit_log (timestamp)"))
             db.session.execute(text("CREATE INDEX IF NOT EXISTS ix_audit_log_action ON audit_log (action)"))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+    # Ensure OTP table exists (safe migration guard)
+    try:
+        db.session.execute(text("SELECT 1 FROM otp LIMIT 1"))
+    except Exception:
+        db.session.rollback()
+        try:
+            db.session.execute(text(
+                "CREATE TABLE IF NOT EXISTS otp ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "email VARCHAR(255) NOT NULL, "
+                "otp_hash VARCHAR(255) NOT NULL, "
+                "purpose VARCHAR(20) NOT NULL, "
+                "created_at INTEGER NOT NULL, "
+                "expires_at INTEGER NOT NULL, "
+                "attempts INTEGER NOT NULL DEFAULT 0, "
+                "verified BOOLEAN NOT NULL DEFAULT 0"
+                ")"
+            ))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS ix_otp_email ON otp (email)"))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS ix_otp_expires_at ON otp (expires_at)"))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_otp_lookup ON otp (email, purpose, verified)"))
             db.session.commit()
         except Exception:
             db.session.rollback()
@@ -885,58 +979,73 @@ def login():
 
 @app.route('/recover', methods=['GET', 'POST'])
 def recover():
+    if request.method == 'GET':
+        return render_template('/recover.html', errors=[], field_errors={"identifier": []}, values={}, show_otp=False, info_msg=None)
+    
+    # POST request - handle password recovery
+    identifier = (request.form.get('identifier') or '').strip()
     errors = []
     field_errors = {"identifier": []}
-    values = {}
-    show_otp = False
-    info_msg = None
-
-    if request.method == 'POST':
-        identifier = (request.form.get('identifier') or '').strip()
-        values = {"identifier": identifier}
-
-        if not identifier:
-            errors.append('Username or email is required.')
-            field_errors["identifier"].append('Username or email is required.')
-        else:
-            if '@' in identifier and not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', identifier):
-                errors.append('Enter a valid email address.')
-                field_errors["identifier"].append('Enter a valid email address.')
-
-        if not errors:
-            now_ts = int(time.time())
-            last_ts = int(session.get('recover_last_ts') or 0)
-            count = int(session.get('recover_count') or 0)
-            if now_ts - last_ts <= 60:
-                count += 1
-            else:
-                count = 1
-            session['recover_last_ts'] = now_ts
-            session['recover_count'] = count
-            if count > 5:
-                errors.append('Please wait before trying again.')
-                field_errors["identifier"].append('Please wait before trying again.')
-
-        if not errors:
-            try:
-                is_email = bool(re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', identifier))
-                if is_email:
-                    _ = User.query.filter(func.lower(User.email) == identifier.lower()).first()
-                else:
-                    _ = User.query.filter_by(username=identifier).first()
-            except Exception:
-                pass
-            show_otp = True
-            info_msg = 'If the account exists, a verification code has been sent.'
-
-    return render_template(
-        '/recover.html',
-        errors=errors,
-        field_errors=field_errors,
-        values=values,
-        show_otp=show_otp,
-        info_msg=info_msg,
-    )
+    
+    if not identifier:
+        errors.append('Email address is required.')
+        field_errors["identifier"].append('Email address is required.')
+    elif not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', identifier):
+        errors.append('Enter a valid email address.')
+        field_errors["identifier"].append('Enter a valid email address.')
+    
+    if errors:
+        return jsonify({'success': False, 'message': errors[0], 'errors': field_errors})
+    
+    # Look up user by email
+    try:
+        user = User.query.filter(func.lower(User.email) == identifier.lower()).first()
+    except Exception:
+        user = None
+    
+    # Always return success for security (timing attack prevention)
+    if not user:
+        return jsonify({
+            'success': True,
+            'message': 'If the account exists, a verification code has been sent.',
+            'otp_code': None
+        })
+    
+    # Generate OTP
+    try:
+        otp_code = generate_otp()
+        otp_hash = generate_password_hash(otp_code)
+        
+        now = int(time.time())
+        otp_record = OTP(
+            email=user.email,
+            otp_hash=otp_hash,
+            purpose='password_reset',
+            created_at=now,
+            expires_at=now + 600,
+            attempts=0,
+            verified=False
+        )
+        db.session.add(otp_record)
+        db.session.commit()
+        
+        # Store reset context in session
+        session['reset_user_id'] = user.id
+        session['otp_email'] = user.email
+        session['otp_purpose'] = 'password_reset'
+        
+        return jsonify({
+            'success': True,
+            'otp_code': otp_code,
+            'message': 'If the account exists, a verification code has been sent.'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': True,
+            'message': 'If the account exists, a verification code has been sent.',
+            'otp_code': None
+        })
 
 
 @app.route('/logout')
@@ -948,78 +1057,367 @@ def logout():
     return redirect(url_for('login'))
 
 
+@app.route('/test-emailjs')
+def test_emailjs():
+    """Test page for EmailJS configuration."""
+    return render_template('test_emailjs.html')
+
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    if request.method == 'POST':
-        username = (request.form.get('username') or '').strip()
-        email = (request.form.get('email') or '').strip()
-        password = request.form.get('password') or ''
+    if request.method == 'GET':
+        return render_template('/register.html', errors=[], field_errors={"username": [], "email": [], "password": []}, values={})
+    
+    # POST request - handle registration
+    username = (request.form.get('username') or '').strip()
+    email = (request.form.get('email') or '').strip()
+    password = request.form.get('password') or ''
 
-        errors = []
-        field_errors = {"username": [], "email": [], "password": []}
+    errors = []
+    field_errors = {"username": [], "email": [], "password": []}
 
-        if not username:
-            errors.append('Username is required.')
-            field_errors["username"].append('Username is required.')
-        if not email:
-            errors.append('Email is required.')
-            field_errors["email"].append('Email is required.')
+    if not username:
+        errors.append('Username is required.')
+        field_errors["username"].append('Username is required.')
+    if not email:
+        errors.append('Email is required.')
+        field_errors["email"].append('Email is required.')
+    else:
+        if not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
+            errors.append('Email address is not valid.')
+            field_errors["email"].append('Email address is not valid.')
+    if not password:
+        errors.append('Password is required.')
+        field_errors["password"].append('Password is required.')
+
+    if password:
+        pwd_errors = []
+        if len(password) < 8:
+            pwd_errors.append('be at least 8 characters long')
+        if not re.search(r'[A-Z]', password):
+            pwd_errors.append('contain at least one uppercase letter')
+        if not re.search(r'[a-z]', password):
+            pwd_errors.append('contain at least one lowercase letter')
+        if not re.search(r'\d', password):
+            pwd_errors.append('contain at least one number')
+        if not re.search(r'[^A-Za-z0-9]', password):
+            pwd_errors.append('contain at least one special character')
+        if pwd_errors:
+            msg = 'Password must ' + ', '.join(pwd_errors) + '.'
+            errors.append(msg)
+            field_errors["password"].append(msg)
+
+    # Uniqueness checks should run regardless of other errors if values are provided
+    try:
+        if username and User.query.filter_by(username=username).first() is not None:
+            errors.append('Username is already taken.')
+            field_errors["username"].append('Username is already taken.')
+        if email and User.query.filter_by(email=email).first() is not None:
+            errors.append('Email is already registered.')
+            field_errors["email"].append('Email is already registered.')
+    except Exception:
+        errors.append('Unable to validate uniqueness at the moment. Please try again.')
+
+    if errors:
+        return jsonify({'success': False, 'errors': field_errors, 'message': errors[0]})
+
+    # Generate OTP
+    try:
+        otp_code = generate_otp()
+        otp_hash = generate_password_hash(otp_code)
+        
+        now = int(time.time())
+        otp_record = OTP(
+            email=email,
+            otp_hash=otp_hash,
+            purpose='registration',
+            created_at=now,
+            expires_at=now + 600,  # 10 minutes
+            attempts=0,
+            verified=False
+        )
+        db.session.add(otp_record)
+        db.session.commit()
+        
+        # Store registration data in session
+        session['pending_registration'] = {
+            'username': username,
+            'email': email,
+            'password_hash': generate_password_hash(password),
+            'timestamp': now
+        }
+        session['otp_email'] = email
+        session['otp_purpose'] = 'registration'
+        
+        return jsonify({
+            'success': True,
+            'otp_code': otp_code,
+            'message': 'Verification code generated. Please check your email.'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': 'Failed to generate verification code. Please try again.',
+            'errors': {}
+        }), 500
+
+
+@app.route('/verify-otp', methods=['POST'])
+def verify_otp():
+    """Verify OTP code and complete registration or password reset."""
+    otp_code = (request.form.get('otp_code') or '').strip()
+    
+    if not otp_code or len(otp_code) != 6 or not otp_code.isdigit():
+        return jsonify({
+            'success': False,
+            'message': 'Invalid OTP format. Please enter a 6-digit code.'
+        }), 400
+    
+    # Get OTP context from session
+    email = session.get('otp_email')
+    purpose = session.get('otp_purpose')
+    
+    if not email or not purpose:
+        return jsonify({
+            'success': False,
+            'message': 'Verification session expired. Please start over.'
+        }), 400
+    
+    # Find active OTP
+    otp_record = OTP.query.filter_by(
+        email=email,
+        purpose=purpose,
+        verified=False
+    ).order_by(OTP.created_at.desc()).first()
+    
+    if not otp_record:
+        return jsonify({
+            'success': False,
+            'message': 'No active verification code found. Please request a new one.'
+        }), 404
+    
+    # Check if OTP is still valid
+    if not otp_record.is_valid():
+        if otp_record.is_expired():
+            message = 'Verification code has expired. Please request a new one.'
         else:
-            if not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
-                errors.append('Email address is not valid.')
-                field_errors["email"].append('Email address is not valid.')
-        if not password:
-            errors.append('Password is required.')
-            field_errors["password"].append('Password is required.')
-
-        if password:
-            pwd_errors = []
-            if len(password) < 8:
-                pwd_errors.append('be at least 8 characters long')
-            if not re.search(r'[A-Z]', password):
-                pwd_errors.append('contain at least one uppercase letter')
-            if not re.search(r'[a-z]', password):
-                pwd_errors.append('contain at least one lowercase letter')
-            if not re.search(r'\d', password):
-                pwd_errors.append('contain at least one number')
-            if not re.search(r'[^A-Za-z0-9]', password):
-                pwd_errors.append('contain at least one special character')
-            if pwd_errors:
-                msg = 'Password must ' + ', '.join(pwd_errors) + '.'
-                errors.append(msg)
-                field_errors["password"].append(msg)
-
-        # Uniqueness checks should run regardless of other errors if values are provided
+            message = 'Too many failed attempts. Please request a new code.'
+        return jsonify({'success': False, 'message': message}), 400
+    
+    # Verify OTP hash
+    if not check_password_hash(otp_record.otp_hash, otp_code):
+        otp_record.increment_attempts()
+        db.session.commit()
+        
+        attempts_remaining = 3 - otp_record.attempts
+        return jsonify({
+            'success': False,
+            'message': f'Invalid verification code. {attempts_remaining} attempts remaining.',
+            'attempts_remaining': attempts_remaining
+        }), 400
+    
+    # OTP verified successfully
+    otp_record.mark_verified()
+    db.session.commit()
+    
+    # Complete the operation based on purpose
+    if purpose == 'registration':
+        pending = session.get('pending_registration')
+        if not pending:
+            return jsonify({
+                'success': False,
+                'message': 'Registration data not found. Please start over.'
+            }), 400
+        
         try:
-            if username and User.query.filter_by(username=username).first() is not None:
-                errors.append('Username is already taken.')
-                field_errors["username"].append('Username is already taken.')
-            if email and User.query.filter_by(email=email).first() is not None:
-                errors.append('Email is already registered.')
-                field_errors["email"].append('Email is already registered.')
-        except Exception:
-            errors.append('Unable to validate uniqueness at the moment. Please try again.')
-
-        if errors:
-            return render_template('/register.html', errors=errors, field_errors=field_errors, values={'username': username, 'email': email})
-
-        try:
-            user = User(username=username, email=email, role='user', status='active')
-            user.set_password(password)
+            # Create user account
+            user = User(
+                username=pending['username'],
+                email=pending['email'],
+                password_hash=pending['password_hash'],
+                role='user',
+                status='active'
+            )
             db.session.add(user)
             db.session.commit()
-            write_audit_log('USER_REGISTERED', 'user', int(user.id), {'username': username, 'email': email})
-        except IntegrityError:
+            
+            write_audit_log('USER_REGISTERED', 'user', int(user.id), {'username': user.username, 'email': user.email})
+            
+            # Clear session
+            session.pop('pending_registration', None)
+            session.pop('otp_email', None)
+            session.pop('otp_purpose', None)
+            
+            return jsonify({
+                'success': True,
+                'message': 'Email verified! Your account has been created.',
+                'next_step': 'complete',
+                'redirect': url_for('login')
+            })
+        except Exception as e:
             db.session.rollback()
-            field_errors["username"].append('Username may be taken.')
-            field_errors["email"].append('Email may be registered.')
-            return render_template('/register.html', errors=['Username or email already exists.'], field_errors=field_errors, values={'username': username, 'email': email})
-        except Exception:
-            db.session.rollback()
-            return render_template('/register.html', errors=['An unexpected error occurred. Please try again.'], field_errors=field_errors, values={'username': username, 'email': email})
+            return jsonify({
+                'success': False,
+                'message': 'Failed to create account. Please try again.'
+            }), 500
+    
+    elif purpose == 'password_reset':
+        # Allow password reset form
+        session['otp_verified'] = True
+        
+        return jsonify({
+            'success': True,
+            'message': 'Identity verified. You can now reset your password.',
+            'next_step': 'reset_password'
+        })
+    
+    return jsonify({'success': False, 'message': 'Unknown purpose'}), 400
 
-        return redirect(url_for('login'))
-    return render_template('/register.html', errors=[], field_errors={"username": [], "email": [], "password": []}, values={})
+
+@app.route('/resend-otp', methods=['POST'])
+def resend_otp():
+    """Generate and send a new OTP code."""
+    email = session.get('otp_email')
+    purpose = session.get('otp_purpose')
+    
+    if not email or not purpose:
+        return jsonify({
+            'success': False,
+            'message': 'No active verification session.'
+        }), 400
+    
+    # Check 30-second cooldown
+    last_resend = session.get('last_otp_resend', 0)
+    now = int(time.time())
+    cooldown = 30 - (now - last_resend)
+    
+    if cooldown > 0:
+        return jsonify({
+            'success': False,
+            'message': f'Please wait {cooldown} seconds before requesting a new code.',
+            'cooldown_remaining': cooldown
+        }), 429
+    
+    # Check rate limit (3 per 15 minutes)
+    rate_limit_key = f'otp_rate_{email}'
+    rate_data = session.get(rate_limit_key, {'count': 0, 'window_start': now})
+    
+    if now - rate_data['window_start'] > 900:  # 15 minutes
+        rate_data = {'count': 0, 'window_start': now}
+    
+    if rate_data['count'] >= 3:
+        return jsonify({
+            'success': False,
+            'message': 'Too many requests. Please try again in 15 minutes.'
+        }), 429
+    
+    try:
+        # Invalidate previous OTP
+        OTP.query.filter_by(
+            email=email,
+            purpose=purpose,
+            verified=False
+        ).update({'verified': True})
+        db.session.commit()
+        
+        # Generate new OTP
+        otp_code = generate_otp()
+        otp_hash = generate_password_hash(otp_code)
+        
+        otp_record = OTP(
+            email=email,
+            otp_hash=otp_hash,
+            purpose=purpose,
+            created_at=now,
+            expires_at=now + 600,
+            attempts=0,
+            verified=False
+        )
+        db.session.add(otp_record)
+        db.session.commit()
+        
+        # Update rate limiting
+        rate_data['count'] += 1
+        session[rate_limit_key] = rate_data
+        session['last_otp_resend'] = now
+        
+        return jsonify({
+            'success': True,
+            'otp_code': otp_code,
+            'message': 'New verification code generated.'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': 'Failed to generate new code. Please try again.'
+        }), 500
+
+
+@app.route('/reset-password', methods=['POST'])
+def reset_password():
+    """Complete password reset after OTP verification."""
+    if not session.get('otp_verified'):
+        return jsonify({
+            'success': False,
+            'message': 'Please verify your identity first.'
+        }), 403
+    
+    user_id = session.get('reset_user_id')
+    if not user_id:
+        return jsonify({
+            'success': False,
+            'message': 'Reset session expired. Please start over.'
+        }), 400
+    
+    new_password = request.form.get('new_password', '')
+    
+    # Validate password (same rules as registration)
+    errors = []
+    if len(new_password) < 8:
+        errors.append('Password must be at least 8 characters long.')
+    if not re.search(r'[A-Z]', new_password):
+        errors.append('Password must contain at least one uppercase letter.')
+    if not re.search(r'[a-z]', new_password):
+        errors.append('Password must contain at least one lowercase letter.')
+    if not re.search(r'\d', new_password):
+        errors.append('Password must contain at least one number.')
+    if not re.search(r'[^A-Za-z0-9]', new_password):
+        errors.append('Password must contain at least one special character.')
+    
+    if errors:
+        return jsonify({'success': False, 'message': ' '.join(errors)}), 400
+    
+    # Update password
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({
+                'success': False,
+                'message': 'User not found.'
+            }), 404
+        
+        user.set_password(new_password)
+        db.session.commit()
+        
+        # Clear session
+        session.pop('otp_verified', None)
+        session.pop('reset_user_id', None)
+        session.pop('otp_email', None)
+        session.pop('otp_purpose', None)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Password reset successfully. You can now log in.',
+            'redirect': url_for('login')
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': 'Failed to reset password. Please try again.'
+        }), 500
 
 
 @app.route('/index')
@@ -2803,6 +3201,25 @@ def _ensure_gps_started():
     if not _gps_started:
         ensure_gps_thread()
         _gps_started = True
+
+
+# OTP cleanup counter
+_otp_cleanup_counter = 0
+
+@app.before_request
+def _cleanup_expired_otps_periodically():
+    """Periodically clean up expired OTP records (every 100 requests)."""
+    global _otp_cleanup_counter
+    _otp_cleanup_counter += 1
+    if _otp_cleanup_counter >= 100:
+        _otp_cleanup_counter = 0
+        try:
+            deleted = cleanup_expired_otps()
+            if deleted > 0:
+                print(f"[OTP Cleanup] Removed {deleted} expired OTP records")
+        except Exception as e:
+            print(f"[OTP Cleanup] Error: {e}")
+
 
 # --- Analytics Routes ---
 

@@ -5,61 +5,280 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Register</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/register.css') }}">
+  <!-- EmailJS SDK -->
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script type="text/javascript">
+    (function(){
+      emailjs.init("dXcaIv5LGMTpybpw2");
+    })();
+  </script>
 </head>
 <body>
   <div class="card" role="region" aria-label="Registration form">
-    <form class="card-inner" method="post" action="{{ url_for('register') }}" novalidate>
+    <!-- Registration Form -->
+    <form class="card-inner" id="registerForm" method="post" novalidate>
+      <!-- Status message for registration progress -->
+      <div id="registrationStatus" class="status-message" style="display:none;"></div>
+
       <div class="field">
         <label for="username">Username</label>
-        <input id="username" name="username" type="text" class="input" placeholder="Username" autocomplete="username" value="{{ (values.get('username') if values else '') }}" />
-        {% if field_errors and field_errors.username %}
-        <div class="field-error">
-          <ul>
-            {% for e in field_errors.username %}
-            <li>{{ e }}</li>
-            {% endfor %}
-          </ul>
-        </div>
-        {% endif %}
+        <input id="username" name="username" type="text" class="input" placeholder="Username" autocomplete="username" />
+        <div class="field-error" id="usernameError" style="display:none;"><ul><li></li></ul></div>
       </div>
 
       <div class="field">
         <label for="email">Email Address</label>
-        <input id="email" name="email" type="email" class="input" placeholder="Email Address" autocomplete="email" value="{{ (values.get('email') if values else '') }}" />
-        {% if field_errors and field_errors.email %}
-        <div class="field-error">
-          <ul>
-            {% for e in field_errors.email %}
-            <li>{{ e }}</li>
-            {% endfor %}
-          </ul>
-        </div>
-        {% endif %}
+        <input id="email" name="email" type="email" class="input" placeholder="Email Address" autocomplete="email" />
+        <div class="field-error" id="emailError" style="display:none;"><ul><li></li></ul></div>
       </div>
 
       <div class="field">
         <label for="password">Password</label>
         <input id="password" name="password" type="password" class="input" placeholder="Password" autocomplete="new-password" />
-        {% if field_errors and field_errors.password %}
-        <div class="field-error">
-          <ul>
-            {% for e in field_errors.password %}
-            <li>{{ e }}</li>
-            {% endfor %}
-          </ul>
-        </div>
-        {% endif %}
+        <div class="field-error" id="passwordError" style="display:none;"><ul><li></li></ul></div>
       </div>
 
       <div class="actions">
-        <button class="btn" type="submit">Register</button>
+        <button class="btn" type="submit" id="registerBtn">Register</button>
       </div>
     </form>
+
+    <!-- OTP Verification Section (Hidden initially) -->
+    <div class="card-inner" id="otpSection" style="display:none;">
+      <div class="field">
+        <label for="otp">Verification Code</label>
+        <input id="otp" name="otp" type="text" class="input" placeholder="Enter 6-digit code" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" />
+        <div style="font-size:12px; color:#64748b; margin-top:4px;">Check your email for the verification code. Code expires in 10 minutes.</div>
+        <div class="field-error" id="otpError" style="display:none;"><ul><li></li></ul></div>
+      </div>
+
+      <div class="actions" style="display:flex; gap:12px;">
+        <button class="btn" type="button" id="verifyBtn" disabled>Verify Code</button>
+        <button class="btn" type="button" id="resendBtn" style="background:#6b7280;" disabled>Resend (30s)</button>
+      </div>
+
+      <div id="otpStatus" style="margin-top:12px; padding:12px; border-radius:6px; font-size:14px; display:none;"></div>
+    </div>
 
     <div class="footer">
       <small>Already have an account? <a class="link" href="{{ url_for('login') }}">Log in</a></small>
       <small><a class="link" href="{{ url_for('recover') }}">Forgot Password?</a></small>
     </div>
   </div>
+
+  <script>
+    const registerForm = document.getElementById('registerForm');
+    const otpSection = document.getElementById('otpSection');
+    const otpInput = document.getElementById('otp');
+    const verifyBtn = document.getElementById('verifyBtn');
+    const resendBtn = document.getElementById('resendBtn');
+    const otpStatus = document.getElementById('otpStatus');
+    const registerBtn = document.getElementById('registerBtn');
+    const registrationStatus = document.getElementById('registrationStatus');
+
+    let userEmail = '';
+    let resendCooldown = 0;
+
+    function showError(fieldId, message) {
+      const errorDiv = document.getElementById(fieldId + 'Error');
+      if (errorDiv) {
+        errorDiv.querySelector('li').textContent = message;
+        errorDiv.style.display = 'block';
+      }
+    }
+
+    function clearErrors() {
+      ['username', 'email', 'password', 'otp'].forEach(field => {
+        const errorDiv = document.getElementById(field + 'Error');
+        if (errorDiv) errorDiv.style.display = 'none';
+      });
+      registrationStatus.style.display = 'none';
+    }
+
+    function showRegistrationStatus(message, isError = false) {
+      registrationStatus.textContent = message;
+      registrationStatus.style.display = 'block';
+      registrationStatus.className = isError ? 'status-message status-error' : 'status-message status-success';
+    }
+
+    function showStatus(message, isError = false) {
+      otpStatus.textContent = message;
+      otpStatus.style.display = 'block';
+      otpStatus.style.background = isError ? '#fef2f2' : '#ecfdf5';
+      otpStatus.style.color = isError ? '#b91c1c' : '#065f46';
+      otpStatus.style.border = isError ? '1px solid #fecaca' : '1px solid #a7f3d0';
+    }
+
+    function startResendCooldown(seconds) {
+      resendCooldown = seconds;
+      resendBtn.disabled = true;
+      
+      const interval = setInterval(() => {
+        resendCooldown--;
+        resendBtn.textContent = `Resend (${resendCooldown}s)`;
+        
+        if (resendCooldown <= 0) {
+          clearInterval(interval);
+          resendBtn.disabled = false;
+          resendBtn.textContent = 'Resend code';
+        }
+      }, 1000);
+    }
+
+    // Handle registration form submission
+    registerForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      clearErrors();
+      
+      const formData = new FormData(registerForm);
+      userEmail = formData.get('email');
+      registerBtn.disabled = true;
+      registerBtn.textContent = 'Sending...';
+      
+      // Show processing status
+      showRegistrationStatus('Creating your account...');
+      
+      try {
+        const response = await fetch('{{ url_for("register") }}', {
+          method: 'POST',
+          body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+          // Show validation errors
+          if (data.errors) {
+            Object.keys(data.errors).forEach(field => {
+              if (data.errors[field].length > 0) {
+                showError(field, data.errors[field][0]);
+              }
+            });
+          }
+          registerBtn.disabled = false;
+          registerBtn.textContent = 'Register';
+          return;
+        }
+        
+        // Send OTP email via EmailJS
+        if (data.otp_code) {
+          try {
+            showRegistrationStatus('Sending verification code to your email...');
+            console.log('Sending email via EmailJS...');
+            const emailResponse = await emailjs.send('service_cs9uath', 'template_tunjwkt', {
+              email: userEmail,  // Recipient email address
+              otp_code: data.otp_code,
+              expiration_minutes: 10
+            });
+            console.log('EmailJS response:', emailResponse);
+            
+            // Show OTP input form
+            registerForm.style.display = 'none';
+            otpSection.style.display = 'block';
+            showStatus(data.message);
+            startResendCooldown(30);
+          } catch (error) {
+            console.error('EmailJS error:', error);
+            
+            // Show OTP form anyway since OTP was generated on backend
+            // User can try resend button
+            registerForm.style.display = 'none';
+            otpSection.style.display = 'block';
+            showStatus('Verification code generated, but email may not have been sent. Try the resend button or check your spam folder.', true);
+            startResendCooldown(30);
+          }
+        }
+      } catch (error) {
+        console.error('Registration error:', error);
+        showError('email', 'An error occurred. Please try again.');
+        registerBtn.disabled = false;
+        registerBtn.textContent = 'Register';
+      }
+    });
+
+    // Enable verify button when 6 digits entered
+    otpInput.addEventListener('input', function() {
+      const value = otpInput.value.replace(/\D/g, '');
+      otpInput.value = value;
+      verifyBtn.disabled = value.length !== 6;
+    });
+
+    // Handle OTP verification
+    verifyBtn.addEventListener('click', async function() {
+      clearErrors();
+      const otpCode = otpInput.value.trim();
+      
+      if (otpCode.length !== 6) return;
+      
+      verifyBtn.disabled = true;
+      verifyBtn.textContent = 'Verifying...';
+      
+      try {
+        const formData = new FormData();
+        formData.append('otp_code', otpCode);
+        
+        const response = await fetch('{{ url_for("verify_otp") }}', {
+          method: 'POST',
+          body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          showStatus(data.message);
+          setTimeout(() => {
+            showStatus('Redirecting to dashboard...');
+            window.location.href = data.redirect;
+          }, 1500);
+        } else {
+          showError('otp', data.message);
+          verifyBtn.disabled = false;
+          verifyBtn.textContent = 'Verify Code';
+          otpInput.value = '';
+        }
+      } catch (error) {
+        showError('otp', 'Verification failed. Please try again.');
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = 'Verify Code';
+      }
+    });
+
+    // Handle OTP resend
+    resendBtn.addEventListener('click', async function() {
+      clearErrors();
+      resendBtn.disabled = true;
+      
+      try {
+        const response = await fetch('{{ url_for("resend_otp") }}', {
+          method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.otp_code) {
+          // Send new OTP via EmailJS
+          await emailjs.send('service_cs9uath', 'template_tunjwkt', {
+            email: userEmail,  // Recipient email address
+            otp_code: data.otp_code,
+            expiration_minutes: 10
+          });
+          
+          showStatus('New verification code sent!');
+          startResendCooldown(30);
+          otpInput.value = '';
+        } else {
+          showError('otp', data.message);
+          if (data.cooldown_remaining) {
+            startResendCooldown(data.cooldown_remaining);
+          } else {
+            resendBtn.disabled = false;
+          }
+        }
+      } catch (error) {
+        showError('otp', 'Failed to resend code. Please try again.');
+        resendBtn.disabled = false;
+      }
+    });
+  </script>
 </body>
 </html>

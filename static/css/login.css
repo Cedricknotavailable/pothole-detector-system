@@ -103,4 +103,38 @@ label {
 .otp-input { text-align: center; letter-spacing: 6px; font-size: 18px; }
 .otp-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
+/* Status messages for registration/recovery progress */
+.status-message {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  animation: slideDown 0.3s ease-out;
+}
+
+.status-message.status-success {
+  background: #ecfdf5; /* green-50 */
+  border: 1px solid #a7f3d0; /* green-200 */
+  color: #065f46; /* green-900 */
+}
+
+.status-message.status-error {
+  background: #fef2f2; /* red-50 */
+  border: 1px solid #fecaca; /* red-200 */
+  color: #7f1d1d; /* red-900 */
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 520px) { .card-inner { padding: 22px 18px; } }
