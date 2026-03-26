@@ -126,6 +126,15 @@
                   <button class="pill active" data-type="unsure">Unsure</button>
                   {% endif %}
                 </div>
+                <!-- Mobile dropdown for type filter -->
+                <select class="mobile-filter-select" id="mobileTypeFilter" style="display: none;">
+                  <option value="all" selected>All Types</option>
+                  <option value="pothole">Pothole</option>
+                  <option value="crack">Crack</option>
+                  {% if is_admin %}
+                  <option value="unsure">Unsure</option>
+                  {% endif %}
+                </select>
               </div>
               <div class="filter-group">
                 <div>Filter by source:</div>
@@ -133,6 +142,12 @@
                   <button class="pill active" data-source="survey">Survey</button>
                   <button class="pill active" data-source="report">Report</button>
                 </div>
+                <!-- Mobile dropdown for source filter -->
+                <select class="mobile-filter-select" id="mobileSourceFilter" style="display: none;">
+                  <option value="all" selected>All Sources</option>
+                  <option value="survey">Survey</option>
+                  <option value="report">Report</option>
+                </select>
               </div>
               <div class="filter-group">
                 <div>Area selection:</div>
@@ -829,6 +844,68 @@
           typePills.forEach((btn) => btn.classList.add('active'));
           sourcePills.forEach((btn) => btn.classList.add('active'));
           syncFiltersFromUi();
+          // Reset mobile dropdowns
+          const mobileTypeFilter = document.getElementById('mobileTypeFilter');
+          const mobileSourceFilter = document.getElementById('mobileSourceFilter');
+          if (mobileTypeFilter) mobileTypeFilter.value = 'all';
+          if (mobileSourceFilter) mobileSourceFilter.value = 'all';
+        });
+      }
+
+      // Mobile filter dropdown handlers
+      const mobileTypeFilter = document.getElementById('mobileTypeFilter');
+      const mobileSourceFilter = document.getElementById('mobileSourceFilter');
+
+      if (mobileTypeFilter) {
+        mobileTypeFilter.addEventListener('change', (e) => {
+          const value = e.target.value;
+          activeFilters.types.clear();
+          
+          if (value === 'all') {
+            activeFilters.types.add('pothole');
+            activeFilters.types.add('crack');
+            if (IS_ADMIN) activeFilters.types.add('unsure');
+          } else {
+            activeFilters.types.add(value);
+          }
+          
+          // Sync pills for consistency
+          typePills.forEach((btn) => {
+            const type = btn.getAttribute('data-type');
+            if (value === 'all' || type === value) {
+              btn.classList.add('active');
+            } else {
+              btn.classList.remove('active');
+            }
+          });
+          
+          applyFilters();
+        });
+      }
+
+      if (mobileSourceFilter) {
+        mobileSourceFilter.addEventListener('change', (e) => {
+          const value = e.target.value;
+          activeFilters.sources.clear();
+          
+          if (value === 'all') {
+            activeFilters.sources.add('survey');
+            activeFilters.sources.add('report');
+          } else {
+            activeFilters.sources.add(value);
+          }
+          
+          // Sync pills for consistency
+          sourcePills.forEach((btn) => {
+            const source = btn.getAttribute('data-source');
+            if (value === 'all' || source === value) {
+              btn.classList.add('active');
+            } else {
+              btn.classList.remove('active');
+            }
+          });
+          
+          applyFilters();
         });
       }
 
