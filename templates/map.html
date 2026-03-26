@@ -117,44 +117,48 @@
           <div class="side-panel">
             <!-- Filters panel -->
             <div class="filters">
-              <div class="filter-group">
-                <div>Filter by type:</div>
-                <div class="pills">
-                  <button class="pill active" data-type="pothole">Pothole</button>
-                  <button class="pill" data-type="crack">Crack</button>
-                  {% if is_admin %}
-                  <button class="pill active" data-type="unsure">Unsure</button>
-                  {% endif %}
+              <!-- Row 1: Type and Source filters (horizontal) -->
+              <div style="display: flex; gap: 8px;">
+                <div class="filter-group" style="flex: 1;">
+                  <div>Type</div>
+                  <div class="pills">
+                    <button class="pill active" data-type="pothole">Pothole</button>
+                    <button class="pill" data-type="crack">Crack</button>
+                    {% if is_admin %}
+                    <button class="pill active" data-type="unsure">Unsure</button>
+                    {% endif %}
+                  </div>
+                  <!-- Mobile dropdown for type filter -->
+                  <select class="mobile-filter-select" id="mobileTypeFilter" style="display: none;">
+                    <option value="all" selected>All Types</option>
+                    <option value="pothole">Pothole</option>
+                    <option value="crack">Crack</option>
+                    {% if is_admin %}
+                    <option value="unsure">Unsure</option>
+                    {% endif %}
+                  </select>
                 </div>
-                <!-- Mobile dropdown for type filter -->
-                <select class="mobile-filter-select" id="mobileTypeFilter" style="display: none;">
-                  <option value="all" selected>All Types</option>
-                  <option value="pothole">Pothole</option>
-                  <option value="crack">Crack</option>
-                  {% if is_admin %}
-                  <option value="unsure">Unsure</option>
-                  {% endif %}
-                </select>
-              </div>
-              <div class="filter-group">
-                <div>Filter by source:</div>
-                <div class="pills">
-                  <button class="pill active" data-source="survey">Survey</button>
-                  <button class="pill active" data-source="report">Report</button>
+                <div class="filter-group" style="flex: 1;">
+                  <div>Source</div>
+                  <div class="pills">
+                    <button class="pill active" data-source="survey">Survey</button>
+                    <button class="pill active" data-source="report">Report</button>
+                  </div>
+                  <!-- Mobile dropdown for source filter -->
+                  <select class="mobile-filter-select" id="mobileSourceFilter" style="display: none;">
+                    <option value="all" selected>All Sources</option>
+                    <option value="survey">Survey</option>
+                    <option value="report">Report</option>
+                  </select>
                 </div>
-                <!-- Mobile dropdown for source filter -->
-                <select class="mobile-filter-select" id="mobileSourceFilter" style="display: none;">
-                  <option value="all" selected>All Sources</option>
-                  <option value="survey">Survey</option>
-                  <option value="report">Report</option>
-                </select>
               </div>
+              <!-- Row 2: Area selection -->
               <div class="filter-group">
-                <div>Area selection:</div>
+                <div>Area</div>
                 <select id="areaSelect" class="select">
-                  <option value="municipalities" selected>municipalities</option>
-                  <option value="provinces">provinces</option>
-                  <option value="regions">regions</option>
+                  <option value="municipalities" selected>Municipalities</option>
+                  <option value="provinces">Provinces</option>
+                  <option value="regions">Regions</option>
                 </select>
               </div>
               <div class="actions">

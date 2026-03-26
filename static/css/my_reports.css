@@ -19,32 +19,76 @@
 /* Mobile responsive layout - Card-based view */
 @media (max-width: 640px) {
     .controls-inner {
-        padding: 16px;
+        padding: 8px;
     }
     
     .my-reports-filters {
         grid-template-columns: 1fr;
-        gap: 12px;
+        gap: 8px;
+    }
+    
+    .control {
+        margin-bottom: 0;
+    }
+    
+    .control-label {
+        font-size: 10px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
     }
     
     .control-input {
-        min-height: 48px;
-        font-size: 16px; /* Prevent zoom on iOS */
+        min-height: 36px;
+        height: 36px;
+        font-size: 13px;
+        padding: 8px 10px;
     }
     
     .btn {
-        min-height: 48px;
-        font-size: 14px;
+        min-height: 36px;
+        height: 36px;
+        font-size: 13px;
+        padding: 8px 12px;
     }
     
     .control.actions {
         grid-column: 1;
         display: flex;
-        gap: 8px;
+        gap: 6px;
+        margin-top: 4px;
     }
     
     .control.actions .btn {
         flex: 1;
+    }
+    
+    /* Compact page header */
+    .page-header {
+        padding: 12px 16px;
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+    }
+    
+    .page-header .title {
+        font-size: 18px;
+    }
+    
+    .page-header .subtitle {
+        font-size: 12px;
+    }
+    
+    .page-header .count {
+        font-size: 11px;
+    }
+    
+    /* Compact controls card */
+    .controls.card {
+        padding: 0;
+        margin: 12px 16px;
     }
     
     /* Hide table, show cards */
@@ -60,7 +104,7 @@
     .report-cards {
         flex-direction: column;
         gap: 12px;
-        padding: 16px;
+        padding: 12px 16px;
     }
     
     .report-card {
@@ -75,13 +119,13 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        padding: 16px;
+        padding: 12px;
         border-bottom: 1px solid #f1f5f9;
     }
     
     .report-card-thumb {
-        width: 64px;
-        height: 64px;
+        width: 56px;
+        height: 56px;
         border-radius: 8px;
         background: #f1f5f9;
         border: 1px solid #e2e8f0;
@@ -91,7 +135,7 @@
         align-items: center;
         justify-content: center;
         color: #94a3b8;
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 700;
     }
     
@@ -108,44 +152,46 @@
     
     .report-card-type {
         font-weight: 700;
-        font-size: 16px;
+        font-size: 15px;
         color: #0f172a;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
     }
     
     .report-card-date {
-        font-size: 13px;
+        font-size: 12px;
         color: #64748b;
     }
     
     .report-card-body {
-        padding: 16px;
+        padding: 12px;
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 10px;
     }
     
     .report-card-row {
         display: flex;
         align-items: flex-start;
         gap: 8px;
-        font-size: 14px;
+        font-size: 13px;
     }
     
     .report-card-row .label {
         font-weight: 600;
         color: #64748b;
-        min-width: 80px;
+        min-width: 70px;
+        font-size: 12px;
     }
     
     .report-card-row .coords-link {
         color: var(--accent);
         text-decoration: none;
         word-break: break-all;
+        font-size: 12px;
     }
     
     .report-card-actions {
-        padding: 12px 16px;
+        padding: 10px 12px;
         border-top: 1px solid #f1f5f9;
         display: flex;
         gap: 8px;
@@ -154,30 +200,41 @@
     .report-card-actions .btn,
     .report-card-actions .mini-btn {
         flex: 1;
-        min-height: 44px;
+        min-height: 36px;
+        height: 36px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 14px;
+        font-size: 13px;
     }
     
     .pagination {
         flex-direction: column;
-        gap: 16px;
+        gap: 12px;
         align-items: center;
+        padding: 12px 16px;
+    }
+    
+    .pagination .range {
+        font-size: 12px;
     }
     
     .pager {
         flex-wrap: wrap;
         justify-content: center;
+        gap: 6px;
     }
     
+    .page-btn,
     .page-num {
-        min-width: 44px;
-        min-height: 44px;
+        min-width: 36px;
+        min-height: 36px;
+        height: 36px;
         display: flex;
         align-items: center;
         justify-content: center;
+        font-size: 13px;
+        padding: 6px 10px;
     }
 }
 
