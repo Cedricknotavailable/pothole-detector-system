@@ -212,29 +212,33 @@ def _redirect_back(default_endpoint: str = 'users_page'):
 
 
 def write_audit_log(action: str, resource_type: str = None, resource_id: int = None, detail: dict = None):
-    """Write an entry to the audit log. Safe to call anywhere — never raises."""
+    """Write an entry to the audit log using a dedicated connection to avoid session conflicts."""
     try:
         cu = _get_current_user()
         actor_id = int(cu.id) if cu else None
         actor_username = cu.username if cu else None
         ip = request.remote_addr if request else None
-        entry = AuditLog(
-            timestamp=int(time.time()),
-            actor_id=actor_id,
-            actor_username=actor_username,
-            action=action,
-            resource_type=resource_type,
-            resource_id=resource_id,
-            detail=json.dumps(detail, separators=(',', ':')) if detail else None,
-            ip_address=ip,
-        )
-        db.session.add(entry)
-        db.session.commit()
-    except Exception:
+        now_ts = int(time.time())
+        detail_str = json.dumps(detail, separators=(',', ':')) if detail else None
+
+        # Use raw SQLite insert via a separate connection so we never
+        # interfere with the calling route's SQLAlchemy session state.
+        db_path = os.path.join(app.instance_path, 'users.db')
+        if not os.path.exists(db_path):
+            db_path = os.path.join(app.root_path, 'users.db')
+        conn = sqlite3.connect(db_path)
         try:
-            db.session.rollback()
-        except Exception:
-            pass
+            conn.execute(
+                "INSERT INTO audit_log "
+                "(timestamp, actor_id, actor_username, action, resource_type, resource_id, detail, ip_address) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (now_ts, actor_id, actor_username, action, resource_type, resource_id, detail_str, ip)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception:
+        pass
 
 # User model for authentication (accounts only)
 class User(db.Model):
@@ -1501,49 +1505,79 @@ def get_audit_log():
         start_date = (request.args.get('start_date') or '').strip()
         end_date = (request.args.get('end_date') or '').strip()
 
-        query = AuditLog.query
+        # Use raw SQL to avoid any SQLAlchemy session/mapping issues
+        db_path = os.path.join(app.instance_path, 'users.db')
+        if not os.path.exists(db_path):
+            db_path = os.path.join(app.root_path, 'users.db')
 
-        if action_filter:
-            query = query.filter(AuditLog.action == action_filter)
-        if actor_filter:
-            query = query.filter(AuditLog.actor_username.ilike(f'%{actor_filter}%'))
-        if start_date:
-            try:
-                start_ts = int(time.mktime(time.strptime(start_date, '%Y-%m-%d')))
-                query = query.filter(AuditLog.timestamp >= start_ts)
-            except ValueError:
-                pass
-        if end_date:
-            try:
-                end_ts = int(time.mktime(time.strptime(end_date, '%Y-%m-%d'))) + 86399
-                query = query.filter(AuditLog.timestamp <= end_ts)
-            except ValueError:
-                pass
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            where_clauses = []
+            params = []
 
-        total = query.count()
-        pages = max(1, (total + per_page - 1) // per_page)
-        if page > pages:
-            page = pages
+            if action_filter:
+                where_clauses.append("action = ?")
+                params.append(action_filter)
+            if actor_filter:
+                where_clauses.append("actor_username LIKE ?")
+                params.append(f'%{actor_filter}%')
+            if start_date:
+                try:
+                    start_ts = int(time.mktime(time.strptime(start_date, '%Y-%m-%d')))
+                    where_clauses.append("timestamp >= ?")
+                    params.append(start_ts)
+                except ValueError:
+                    pass
+            if end_date:
+                try:
+                    end_ts = int(time.mktime(time.strptime(end_date, '%Y-%m-%d'))) + 86399
+                    where_clauses.append("timestamp <= ?")
+                    params.append(end_ts)
+                except ValueError:
+                    pass
 
-        entries = query.order_by(desc(AuditLog.timestamp)).offset((page - 1) * per_page).limit(per_page).all()
+            where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 
-        items = []
-        for e in entries:
-            items.append({
-                'id': e.id,
-                'timestamp': e.timestamp,
-                'timestamp_iso': e.timestamp_iso,
-                'actor_id': e.actor_id,
-                'actor_username': e.actor_username or '—',
-                'action': e.action,
-                'resource_type': e.resource_type or '—',
-                'resource_id': e.resource_id,
-                'detail': e.detail_parsed,
-                'ip_address': e.ip_address or '—',
-            })
+            total = conn.execute(f"SELECT COUNT(*) FROM audit_log {where_sql}", params).fetchone()[0]
+            pages = max(1, (total + per_page - 1) // per_page)
+            page = min(page, pages)
+            offset = (page - 1) * per_page
 
-        # Distinct action types for filter dropdown
-        action_types = [r[0] for r in db.session.query(AuditLog.action).distinct().order_by(AuditLog.action).all()]
+            rows = conn.execute(
+                f"SELECT id, timestamp, actor_id, actor_username, action, resource_type, resource_id, detail, ip_address "
+                f"FROM audit_log {where_sql} ORDER BY timestamp DESC LIMIT ? OFFSET ?",
+                params + [per_page, offset]
+            ).fetchall()
+
+            items = []
+            for r in rows:
+                detail_parsed = {}
+                try:
+                    detail_parsed = json.loads(r['detail']) if r['detail'] else {}
+                except Exception:
+                    pass
+                ts = r['timestamp'] or 0
+                items.append({
+                    'id': r['id'],
+                    'timestamp': ts,
+                    'timestamp_iso': time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(ts)) if ts else '',
+                    'actor_id': r['actor_id'],
+                    'actor_username': r['actor_username'] or '—',
+                    'action': r['action'],
+                    'resource_type': r['resource_type'] or '—',
+                    'resource_id': r['resource_id'],
+                    'detail': detail_parsed,
+                    'ip_address': r['ip_address'] or '—',
+                })
+
+            action_types = [
+                row[0] for row in conn.execute(
+                    "SELECT DISTINCT action FROM audit_log ORDER BY action"
+                ).fetchall()
+            ]
+        finally:
+            conn.close()
 
         return jsonify({
             'items': items,
@@ -1553,7 +1587,9 @@ def get_audit_log():
             'action_types': action_types,
         })
     except Exception as e:
-        return jsonify({'items': [], 'total': 0, 'page': 1, 'pages': 1, 'action_types': [], 'error': str(e)})
+        import traceback
+        traceback.print_exc()
+        return jsonify({'items': [], 'total': 0, 'page': 1, 'pages': 1, 'action_types': [], 'error': str(e)}), 500
 
 @app.route('/start', methods=['POST'])
 def start_stream():

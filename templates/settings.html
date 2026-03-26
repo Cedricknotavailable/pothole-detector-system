@@ -271,7 +271,13 @@
         const item = header.parentElement;
         const isActive = item.classList.contains('active');
         document.querySelectorAll('.accordion-item').forEach(i => i.classList.remove('active'));
-        if (!isActive) item.classList.add('active');
+        if (!isActive) {
+          item.classList.add('active');
+          // Auto-load audit log when its accordion opens
+          if (item.id === 'auditLogAccordion') {
+            setTimeout(() => loadAuditLog(1), 50);
+          }
+        }
       }
 
        (function() {
@@ -370,7 +376,6 @@
       };
 
       let _auditCurrentPage = 1;
-      let _auditActionTypes = [];
 
       async function loadAuditLog(page) {
         page = page || _auditCurrentPage;
@@ -390,20 +395,38 @@
         tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading...</td></tr>';
 
         try {
+          console.log('Fetching audit log:', '/api/audit-log?' + params.toString());
           const res = await fetch('/api/audit-log?' + params.toString());
-          const data = await res.json();
+          console.log('Response status:', res.status, res.statusText);
+          
+          if (!res.ok) {
+            const errorText = await res.text();
+            console.error('API error response:', errorText);
+            tbody.innerHTML = `<tr><td colspan="6" class="empty">Error: ${res.status} ${res.statusText}</td></tr>`;
+            return;
+          }
 
-          // Populate action type dropdown once
-          if (_auditActionTypes.length === 0 && data.action_types && data.action_types.length > 0) {
-            _auditActionTypes = data.action_types;
+          const data = await res.json();
+          console.log('Audit log data:', data);
+
+          if (data.error) {
+            tbody.innerHTML = `<tr><td colspan="6" class="empty">Error: ${data.error}</td></tr>`;
+            return;
+          }
+
+          // Always refresh action type dropdown from latest response
+          if (data.action_types && data.action_types.length > 0) {
             const sel = document.getElementById('auditActionFilter');
+            const current = sel.value;
+            sel.innerHTML = '<option value="">All Actions</option>';
             data.action_types.forEach(a => {
               const opt = document.createElement('option');
               opt.value = a;
               opt.textContent = a.replace(/_/g, ' ');
               sel.appendChild(opt);
             });
-            if (action) sel.value = action;
+            sel.value = current; // restore selection
+            console.log('Populated action types:', data.action_types);
           }
 
           if (!data.items || data.items.length === 0) {
@@ -431,7 +454,8 @@
 
           renderAuditPagination(data.page, data.pages, data.total);
         } catch (err) {
-          tbody.innerHTML = '<tr><td colspan="6" class="empty">Failed to load audit log.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" class="empty">Failed to load audit log. Check console for details.</td></tr>';
+          console.error('Audit log error:', err);
         }
       }
 
@@ -479,11 +503,6 @@
           });
       }
 
-      // Auto-load audit log when its accordion is opened
-      document.getElementById('auditLogAccordion').querySelector('.accordion-header').addEventListener('click', function() {
-        const willOpen = !document.getElementById('auditLogAccordion').classList.contains('active');
-        if (willOpen) setTimeout(() => loadAuditLog(1), 50);
-      });
     </script>
   </body>
 </html>
