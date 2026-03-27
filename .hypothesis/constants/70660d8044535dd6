@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\bs4\builder\_html5lib.py
+# hypothesis_version: 6.151.9
+
+['*', 'BeautifulSoup', 'BeautifulSoupNode', 'Element', 'HTML5TreeBuilder', 'MIT', 'TextNode', 'exclude_encodings', 'html', 'html.parser', 'html5lib', 'name', 'override_encoding', 'publicId', 'systemId']

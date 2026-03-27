@@ -317,6 +317,95 @@
         }, 2000);
       });
     </script>
+
+    <script>
+      // Notification functionality
+      (function() {
+        const notifBtn = document.getElementById('notifBtn');
+        const notifPopup = document.getElementById('notifPopup');
+        const notifBadge = document.getElementById('notifBadge');
+        const notifList = document.getElementById('notifList');
+        const markAllReadBtn = document.getElementById('markAllReadBtn');
+
+        function fetchNotifications() {
+          fetch('/notifications/unread')
+            .then(res => res.json())
+            .then(data => {
+              if (data.count > 0) {
+                notifBadge.style.display = 'block';
+                markAllReadBtn.style.display = 'block';
+              } else {
+                notifBadge.style.display = 'none';
+                markAllReadBtn.style.display = 'none';
+              }
+
+              if (data.items && data.items.length > 0) {
+                notifList.innerHTML = data.items.map(n => `
+                  <div class="notif-item" data-id="${n.id}" data-link="${n.link || ''}" style="padding:12px 16px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#fff'">
+                    <div style="font-weight:600; color:#0f172a; font-size:13px; margin-bottom:4px;">${n.title}</div>
+                    <div style="color:#64748b; font-size:12px; line-height:1.4;">${n.message}</div>
+                    <div style="color:#94a3b8; font-size:11px; margin-top:4px;">${n.created_at_iso}</div>
+                  </div>
+                `).join('');
+
+                document.querySelectorAll('.notif-item').forEach(item => {
+                  item.addEventListener('click', () => handleNotifClick(item));
+                });
+              } else {
+                notifList.innerHTML = '<div style="padding:20px; text-align:center; color:#64748b; font-size:13px;">No new notifications</div>';
+              }
+            })
+            .catch(err => console.error('Failed to fetch notifications:', err));
+        }
+
+        function handleNotifClick(item) {
+          const id = item.dataset.id;
+          const link = item.dataset.link;
+
+          fetch(`/notifications/mark-read/${id}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+              if (data.success) {
+                fetchNotifications();
+                if (link && link !== 'None' && link !== '') {
+                  window.location.href = link;
+                }
+              }
+            })
+            .catch(err => console.error('Failed to mark notification as read:', err));
+        }
+
+        notifBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isVisible = notifPopup.style.display === 'block';
+          notifPopup.style.display = isVisible ? 'none' : 'block';
+          if (!isVisible) {
+            fetchNotifications();
+          }
+        });
+
+        markAllReadBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          fetch('/notifications/mark-all-read', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+              if (data.success) {
+                fetchNotifications();
+              }
+            })
+            .catch(err => console.error('Failed to mark all as read:', err));
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!notifPopup.contains(e.target) && e.target !== notifBtn) {
+            notifPopup.style.display = 'none';
+          }
+        });
+
+        fetchNotifications();
+        setInterval(fetchNotifications, 30000);
+      })();
+    </script>
     {% include 'logout_modal.html' %}
   </body>
 </html>

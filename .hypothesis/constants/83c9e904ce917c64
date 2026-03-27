@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\html5lib\__init__.py
+# hypothesis_version: 6.151.9
+
+['1.1', 'HTMLParser', 'getTreeBuilder', 'getTreeWalker', 'parse', 'parseFragment', 'serialize']

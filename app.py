@@ -2360,33 +2360,6 @@ def my_reports_page():
         end=end,
     )
 
-@app.route('/notifications')
-def notifications_page():
-    current_user = _login_required()
-    if not isinstance(current_user, User):
-        return current_user
-    
-    page = request.args.get('page', 1, type=int)
-    per_page = 20
-    
-    query = Notification.query.filter_by(user_id=current_user.id).order_by(Notification.created_at.desc())
-    
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    notifications = pagination.items
-    
-    # Simple unread count
-    unread_count = Notification.query.filter_by(user_id=current_user.id, is_read=False).count()
-    
-    return render_template(
-        'notifications.html',
-        current_user=current_user,
-        notifications=notifications,
-        pagination=pagination,
-        unread_count=unread_count,
-        is_admin=_is_admin(current_user),
-        csrf_token=_get_csrf_token()
-    )
-
 @app.route('/notifications/unread')
 def unread_notifications():
     current_user = _login_required()

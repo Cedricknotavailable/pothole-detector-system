@@ -1,0 +1,103 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Bug Condition** - Notification Popup Display on My Reports and Analytics
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the bug exists
+  - **Scoped PBT Approach**: For deterministic bugs, scope the property to the concrete failing case(s) to ensure reproducibility
+  - Test that clicking notification bell on My Reports page displays popup (not navigation to /notifications route)
+  - Test that clicking notification bell on Analytics page displays popup (not no-op)
+  - Test that /notifications route does not exist (should return 404)
+  - Test that notifPopup HTML structure exists on both My Reports and Analytics pages
+  - Test that JavaScript event handlers are attached to notification bells on both pages
+  - The test assertions should match the Expected Behavior Properties from design (popup displayed, notifications loaded, interactive functionality works)
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists)
+  - Document counterexamples found to understand root cause:
+    - My Reports: clicking bell navigates to broken route instead of showing popup
+    - Analytics: clicking bell does nothing, no popup appears
+    - Direct route: accessing /notifications raises TemplateNotFound error
+    - Missing HTML: notifPopup div not found on My Reports and Analytics pages
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 1.1, 1.2, 1.3, 2.1, 2.2, 2.3_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Existing Notification Functionality on Settings and Users Pages
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for non-buggy inputs (Settings and Users pages)
+  - Observe: clicking notification bell on Settings page displays popup with notifications
+  - Observe: clicking notification bell on Users page displays popup with notifications
+  - Observe: API endpoints /notifications/unread, /notifications/mark-read/<id>, /notifications/mark-all-read work correctly
+  - Observe: notification badge displays correctly on Settings and Users pages
+  - Observe: 30-second polling refreshes notifications automatically
+  - Write property-based tests capturing observed behavior patterns from Preservation Requirements
+  - Property-based testing generates many test cases for stronger guarantees
+  - Test that Settings page notification popup continues to work exactly as before
+  - Test that Users page notification popup continues to work exactly as before
+  - Test that API endpoints continue to return correct responses
+  - Test that badge display and polling continue to work
+  - Test that all other page functionality (filters, tables, navigation) remains unaffected
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
+
+- [x] 3. Fix for notification routes mobile implementation
+
+  - [x] 3.1 Fix My Reports page notification implementation
+    - Replace `<a href="/notifications">` link with proper button structure matching Settings page
+    - Add `<button id="notifBtn">` with inline styles and bell icon
+    - Add `<div id="notifBadge">` for unread indicator with conditional display
+    - Add complete popup HTML structure after button (notifPopup div with header, notifList, and default message)
+    - Add complete JavaScript implementation at end of file (IIFE with fetchNotifications, handleNotifClick, event listeners, 30-second polling)
+    - _Bug_Condition: isBugCondition(input) where input.action == 'click' AND input.target == 'notification_bell' AND input.page == 'my_reports'_
+    - _Expected_Behavior: popupDisplayed(result) AND notificationsLoaded(result) AND interactiveFunctionalityWorks(result) from design_
+    - _Preservation: Settings and Users page notification functionality must remain unchanged_
+    - _Requirements: 1.1, 2.1, 2.3, 2.4, 2.5_
+
+  - [x] 3.2 Fix Analytics page notification implementation
+    - Add complete popup HTML structure after existing notifBtn button (notifPopup div with header, notifList, and default message)
+    - Add complete JavaScript implementation at end of existing script tag (IIFE with fetchNotifications, handleNotifClick, event listeners, 30-second polling)
+    - _Bug_Condition: isBugCondition(input) where input.action == 'click' AND input.target == 'notification_bell' AND input.page == 'analytics'_
+    - _Expected_Behavior: popupDisplayed(result) AND notificationsLoaded(result) AND interactiveFunctionalityWorks(result) from design_
+    - _Preservation: Settings and Users page notification functionality must remain unchanged_
+    - _Requirements: 1.2, 2.2, 2.3, 2.4, 2.5_
+
+  - [x] 3.3 Remove orphaned /notifications route handler
+    - Delete the entire @app.route('/notifications') function from app.py (lines ~2390-2410)
+    - Remove route decorator, function definition, and all function body code
+    - _Bug_Condition: isBugCondition(input) where input.action == 'navigate' AND input.route == '/notifications'_
+    - _Expected_Behavior: Route should not exist (404 response)_
+    - _Preservation: All other routes and API endpoints must continue to function correctly_
+    - _Requirements: 1.3_
+
+  - [x] 3.4 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Notification Popup Display on My Reports and Analytics
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - Verify clicking notification bell on My Reports page displays popup
+    - Verify clicking notification bell on Analytics page displays popup
+    - Verify /notifications route returns 404
+    - Verify notifPopup HTML structure exists on both pages
+    - Verify JavaScript event handlers work correctly
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+
+  - [x] 3.5 Verify preservation tests still pass
+    - **Property 2: Preservation** - Existing Notification Functionality on Settings and Users Pages
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Verify Settings page notification popup continues to work exactly as before
+    - Verify Users page notification popup continues to work exactly as before
+    - Verify API endpoints continue to function correctly
+    - Verify badge display and polling continue to work
+    - Confirm all tests still pass after fix (no regressions)
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
