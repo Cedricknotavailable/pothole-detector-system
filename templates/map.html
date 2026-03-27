@@ -124,7 +124,7 @@
                   <div class="pills">
                     <button class="pill active" data-type="pothole">Pothole</button>
                     <button class="pill" data-type="crack">Crack</button>
-                    {% if is_admin %}
+                    {% if is_admin_or_moderator %}
                     <button class="pill active" data-type="unsure">Unsure</button>
                     {% endif %}
                   </div>
@@ -133,7 +133,7 @@
                     <option value="all" selected>All Types</option>
                     <option value="pothole">Pothole</option>
                     <option value="crack">Crack</option>
-                    {% if is_admin %}
+                    {% if is_admin_or_moderator %}
                     <option value="unsure">Unsure</option>
                     {% endif %}
                   </select>
@@ -263,6 +263,7 @@
       const ICON_FIXED_ROADCRACK_URL = "{{ url_for('static', filename='icons/fixed_roadcrack.png') }}";
       const ICON_UNSURE_URL = "{{ url_for('static', filename='icons/unsure_object.png') }}";
       const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
+      const IS_ADMIN_OR_MODERATOR = {{ 'true' if is_admin_or_moderator else 'false' }};
       
       const areaSummaryNameEl = document.getElementById('areaSummaryName');
       const countUserPotholeEl = document.getElementById('countUserPothole');
@@ -313,7 +314,7 @@
         types: new Set(['pothole', 'crack']),
         sources: new Set(['survey', 'report']),
       };
-      if (IS_ADMIN) {
+      if (IS_ADMIN_OR_MODERATOR) {
         activeFilters.types.add('unsure');
       }
 
@@ -550,7 +551,7 @@
         const imgUrl = detectionSnapshotUrl(it);
         const imgHtml = imgUrl ? `<div style="margin:6px 0 6px 0"><img src="${imgUrl}" alt="Detection snapshot" style="width:180px;height:auto;border-radius:8px;display:block;border:1px solid #e2e8f0;" /></div>` : '';
         const pending = detectionIsPending(it);
-        const actions = (IS_ADMIN && pending) ? `
+        const actions = (IS_ADMIN_OR_MODERATOR && pending) ? `
           <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
             <button onclick="reviewDetection(${it.id}, 'confirm_pothole')" class="reaction-btn" title="Confirm pothole">Confirm pothole</button>
             <button onclick="reviewDetection(${it.id}, 'confirm_roadcrack')" class="reaction-btn" title="Confirm road crack">Confirm road crack</button>
@@ -609,7 +610,7 @@
       }
 
       async function reviewDetection(id, action) {
-        if (!IS_ADMIN) return;
+        if (!IS_ADMIN_OR_MODERATOR) return;
         try {
           const res = await fetch(`/detections/${id}/review`, {
             method: 'POST',
@@ -638,7 +639,7 @@
 
       async function fetchDetections() {
         try {
-          const res = await fetch(IS_ADMIN ? '/detections?include_pending=1' : '/detections');
+          const res = await fetch(IS_ADMIN_OR_MODERATOR ? '/detections?include_pending=1' : '/detections');
           const data = await res.json();
           const items = data.items || [];
           const currentIds = new Set();
@@ -868,7 +869,7 @@
           if (value === 'all') {
             activeFilters.types.add('pothole');
             activeFilters.types.add('crack');
-            if (IS_ADMIN) activeFilters.types.add('unsure');
+            if (IS_ADMIN_OR_MODERATOR) activeFilters.types.add('unsure');
           } else {
             activeFilters.types.add(value);
           }

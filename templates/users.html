@@ -66,6 +66,7 @@
                   <select id="role" class="control-input" name="role">
                     <option value="" {% if not role_filter %}selected{% endif %}>All</option>
                     <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Admin</option>
+                    <option value="moderator" {% if role_filter == 'moderator' %}selected{% endif %}>Moderator</option>
                     <option value="user" {% if role_filter == 'user' %}selected{% endif %}>User</option>
                   </select>
                 </div>
@@ -146,6 +147,7 @@
                               <input type="hidden" name="next" value="{{ next_url }}" />
                               <select class="mini-select" name="role" {% if current_user and current_user.id == u.id and u.role == 'admin' %}disabled{% endif %}>
                                 <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>admin</option>
+                                <option value="moderator" {% if u.role == 'moderator' %}selected{% endif %}>moderator</option>
                                 <option value="user" {% if u.role == 'user' %}selected{% endif %}>user</option>
                               </select>
                               <button class="mini-btn" type="submit" {% if current_user and current_user.id == u.id and u.role == 'admin' %}disabled{% endif %}>Save</button>

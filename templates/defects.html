@@ -33,6 +33,7 @@
     <div class="layout">
       <aside class="sidebar">
         <nav class="nav">
+          {% if is_admin %}
           <a href="/index">Survey</a>
           <a href="/map">Map</a>
           <a href="/users">User management</a>
@@ -40,6 +41,11 @@
           <a href="/settings">Settings</a>
           <a href="/admin/backups">Backup Management</a>
           <a href="/analytics">Analytics</a>
+          {% else %}
+          <a href="/map">Map</a>
+          <a class="active" href="/defects">Defects Management</a>
+          <a href="/settings">Settings</a>
+          {% endif %}
           <a href="/logout">Log Out</a>
         </nav>
       </aside>
@@ -73,10 +79,13 @@
                       <option value="" {% if not type_filter %}selected{% endif %}>All Categories</option>
                       <option value="pothole" {% if type_filter == 'pothole' %}selected{% endif %}>Pothole</option>
                       <option value="crack" {% if type_filter == 'crack' %}selected{% endif %}>Road Crack</option>
+                      {% if is_admin_or_moderator %}
                       <option value="unsure" {% if type_filter == 'unsure' %}selected{% endif %}>Unsure (AI)</option>
+                      {% endif %}
                     </select>
                   </div>
 
+                  {% if is_admin_or_moderator %}
                   <div id="unsureContainer" class="control {% if type_filter == 'unsure' %}active{% endif %}" style="{% if type_filter != 'unsure' %}display:none;{% else %}display:grid;{% endif %}">
                     <label class="control-label" for="unsure">Unsure Status</label>
                     <select id="unsure" class="control-input" name="unsure">
@@ -86,6 +95,7 @@
                       <option value="rejected" {% if unsure_filter == 'rejected' %}selected{% endif %}>Rejected</option>
                     </select>
                   </div>
+                  {% endif %}
 
                   <div class="control">
                     <label class="control-label" for="source">Source</label>

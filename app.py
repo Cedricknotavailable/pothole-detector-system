@@ -45,7 +45,7 @@ app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024
 # Initialize SQLAlchemy
 db = SQLAlchemy(app)
 
-ALLOWED_ROLES = {'admin', 'user'}
+ALLOWED_ROLES = {'admin', 'moderator', 'user'}
 ALLOWED_STATUSES = {'active', 'suspended', 'locked', 'archived'}
 BACKUP_ALLOWED_EXTS = {'db', 'sqlite', 'sqlite3', 'sql'}
 BACKUP_DIR = os.path.join(app.root_path, 'backups')
@@ -73,9 +73,29 @@ def _is_admin(user) -> bool:
     return str(role).strip().lower() == 'admin'
 
 
+def _is_moderator(user) -> bool:
+    if not user:
+        return False
+    role = getattr(user, 'role', None)
+    if role is None:
+        return False
+    return str(role).strip().lower() == 'moderator'
+
+
+def _is_admin_or_moderator(user) -> bool:
+    return _is_admin(user) or _is_moderator(user)
+
+
 def _require_admin():
     cu = _get_current_user()
     if not _is_admin(cu):
+        abort(403)
+    return cu
+
+
+def _require_admin_or_moderator():
+    cu = _get_current_user()
+    if not _is_admin_or_moderator(cu):
         abort(403)
     return cu
 
@@ -1026,6 +1046,8 @@ def login():
         write_audit_log('USER_LOGIN', 'user', int(user.id), {'username': user.username})
         if _is_admin(user):
             return redirect(url_for('index_page'))
+        elif _is_moderator(user):
+            return redirect(url_for('defects_page'))
         return redirect(url_for('map_page'))
 
     return render_template('/login.html', field_errors={}, values={})
@@ -2102,7 +2124,8 @@ def map_page():
     if not isinstance(current_user, User):
         return current_user
     is_admin = _is_admin(current_user)
-    return render_template('/map.html', current_user=current_user, is_admin=is_admin)
+    is_admin_or_moderator = _is_admin_or_moderator(current_user)
+    return render_template('/map.html', current_user=current_user, is_admin=is_admin, is_admin_or_moderator=is_admin_or_moderator)
 
 
 @app.route('/reports', methods=['GET', 'POST'])
@@ -2553,7 +2576,6 @@ def user_set_role(user_id: int):
     if _is_admin(user):
         abort(403)
     if user.id == current_user.id and _is_admin(user) and new_role != 'admin':
-        # prevent self-demotion
         abort(400)
 
     user.role = new_role
@@ -2596,8 +2618,9 @@ def user_delete(user_id: int):
 
 @app.route('/defects')
 def defects_page():
-    current_user = _require_admin()
+    current_user = _require_admin_or_moderator()
     is_admin = _is_admin(current_user)
+    is_admin_or_moderator = _is_admin_or_moderator(current_user)
     
     q_filter = (request.args.get('q') or '').strip()
     type_filter = (request.args.get('type') or '').strip().lower()
@@ -2811,6 +2834,7 @@ def defects_page():
         end_date=end_date,
         sort=sort,
         is_admin=is_admin,
+        is_admin_or_moderator=is_admin_or_moderator,
         current_user=current_user,
         next_url=request.full_path
     )
@@ -2823,8 +2847,9 @@ def detections_api():
         return current_user
     try:
         is_admin = _is_admin(current_user)
+        is_admin_or_moderator = _is_admin_or_moderator(current_user)
         include_pending = str(request.args.get('include_pending') or '').strip().lower() in {'1', 'true', 'yes'}
-        allow_pending = bool(is_admin and include_pending)
+        allow_pending = bool(is_admin_or_moderator and include_pending)
         
         expiration_days = 30
         try:
@@ -2902,7 +2927,7 @@ def detections_api():
 
 @app.route('/detections/<int:detection_id>/review', methods=['POST'])
 def review_detection(detection_id: int):
-    current_user = _require_admin()
+    current_user = _require_admin_or_moderator()
     try:
         data = request.get_json() or {}
         action = str(data.get('action') or '').strip().lower()
