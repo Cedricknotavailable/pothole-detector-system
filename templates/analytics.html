@@ -73,26 +73,26 @@
           </div>
 
           <div class="analytics-grid">
-            <div class="kpi-card">
+            <a href="/defects?type=pothole" class="kpi-card kpi-card-link">
               <div class="kpi-title">Total Potholes</div>
               <div class="kpi-value" id="kpi-potholes">-</div>
-            </div>
-            <div class="kpi-card">
+            </a>
+            <a href="/defects?status=open" class="kpi-card kpi-card-link">
               <div class="kpi-title">Active Defects</div>
               <div class="kpi-value" id="kpi-active" style="color:#ef4444;">-</div>
-            </div>
-            <div class="kpi-card">
+            </a>
+            <a href="/defects?status=fixed" class="kpi-card kpi-card-link">
               <div class="kpi-title">Resolved</div>
               <div class="kpi-value" id="kpi-resolved" style="color:#22c55e;">-</div>
-            </div>
+            </a>
             <div class="kpi-card">
               <div class="kpi-title">Avg Repair Time</div>
               <div><span class="kpi-value" id="kpi-repair">-</span><span class="kpi-unit">hrs</span></div>
             </div>
-            <div class="kpi-card">
+            <a href="/my-reports" class="kpi-card kpi-card-link">
               <div class="kpi-title">Total Reports</div>
               <div class="kpi-value" id="kpi-reports">-</div>
-            </div>
+            </a>
             <div class="kpi-card">
               <div class="kpi-title">AI Accuracy</div>
               <div><span class="kpi-value" id="kpi-accuracy">-</span><span class="kpi-unit">%</span></div>
@@ -316,10 +316,47 @@
                 const d = await (await fetch(`/api/analytics/status-distribution?${getChartFilters('statusAdminLevel', 'statusAdminArea')}`)).json();
                 const ctx = document.getElementById('statusChart').getContext('2d');
                 if (statusChart) statusChart.destroy();
+                
+                // Calculate total and percentages
+                const total = d.values.reduce((sum, val) => sum + val, 0);
+                const formattedLabels = d.labels.map((label, idx) => {
+                    const count = d.values[idx];
+                    const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                    return `${label}: ${percentage}% (${count})`;
+                });
+                
                 statusChart = new Chart(ctx, {
                     type: 'doughnut',
-                    data: { labels: d.labels, datasets: [{ data: d.values, backgroundColor: ['#ef4444', '#f59e0b', '#22c55e'] }] },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+                    data: { 
+                        labels: formattedLabels, 
+                        datasets: [{ 
+                            data: d.values, 
+                            backgroundColor: ['#ef4444', '#f59e0b', '#22c55e'] 
+                        }] 
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        plugins: { 
+                            legend: { 
+                                position: 'right',
+                                labels: {
+                                    font: { size: 12 },
+                                    padding: 10
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = d.labels[context.dataIndex];
+                                        const count = context.parsed;
+                                        const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                                        return `${label}: ${percentage}% (${count})`;
+                                    }
+                                }
+                            }
+                        } 
+                    }
                 });
             } catch(e) { console.error(e); }
         }

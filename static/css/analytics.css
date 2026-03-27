@@ -1,5 +1,8 @@
 .analytics-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 20px; padding-bottom: 40px; margin-top: 20px; }
 .kpi-card { grid-column: span 2; background: #fff; padding: 20px; border-radius: 10px; border: 1px solid #cbd5e1; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; }
+.kpi-card-link { text-decoration: none; cursor: pointer; transition: all 0.2s ease; }
+.kpi-card-link:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.12); border-color: var(--accent); }
+.kpi-card-link:active { transform: translateY(0); }
 .kpi-title { font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
 .kpi-value { font-size: 28px; font-weight: 800; color: #0f172a; line-height: 1.2; }
 .kpi-unit { font-size: 14px; font-weight: 500; color: #94a3b8; margin-left: 4px; }

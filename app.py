@@ -309,7 +309,7 @@ class Report(db.Model):
     @property
     def created_at_iso(self) -> str:
         try:
-            return time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(int(self.created_at)))
+            return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(int(self.created_at)))
         except Exception:
             return str(self.created_at)
 
@@ -317,7 +317,7 @@ class Report(db.Model):
     def status_updated_at_iso(self) -> str:
         try:
             val = int(self.status_updated_at) if self.status_updated_at else int(self.created_at)
-            return time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(val))
+            return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(val))
         except Exception:
             return ''
 
@@ -358,7 +358,7 @@ class Detection(db.Model):
     @property
     def created_at_iso(self) -> str:
         try:
-            return time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(int(self.created_at)))
+            return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(int(self.created_at)))
         except Exception:
             return str(self.created_at)
 
@@ -375,7 +375,7 @@ class Notification(db.Model):
     @property
     def created_at_iso(self) -> str:
         try:
-            return time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(int(self.created_at)))
+            return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(int(self.created_at)))
         except Exception:
             return str(self.created_at)
 
@@ -401,7 +401,7 @@ class AuditLog(db.Model):
     @property
     def timestamp_iso(self) -> str:
         try:
-            return time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(int(self.timestamp)))
+            return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(int(self.timestamp)))
         except Exception:
             return str(self.timestamp)
 
@@ -1978,7 +1978,7 @@ def get_audit_log():
                 items.append({
                     'id': r['id'],
                     'timestamp': ts,
-                    'timestamp_iso': time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(ts)) if ts else '',
+                    'timestamp_iso': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(ts)) if ts else '',
                     'actor_id': r['actor_id'],
                     'actor_username': r['actor_username'] or '—',
                     'action': r['action'],
@@ -2724,9 +2724,9 @@ def defects_page():
             'lat': r.latitude,
             'lon': r.longitude,
             'created_at': created_at_val,
-            'created_at_iso': time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(created_at_val)) if created_at_val else '',
+            'created_at_iso': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(created_at_val)) if created_at_val else '',
             'status_updated_at': status_updated_val,
-            'status_updated_at_iso': time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(status_updated_val)) if status_updated_val else '',
+            'status_updated_at_iso': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(status_updated_val)) if status_updated_val else '',
             'submitted_by': r.submitted_by,
             'source': r.source,
             'is_fixed': r.is_fixed,
@@ -2829,9 +2829,9 @@ def detections_api():
                 "conf": float(d.confidence),
                 "confidence_score": float(d.confidence_score) if d.confidence_score is not None else float(d.confidence),
                 "ts": created_at_val,
-                "ts_iso": time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(created_at_val)) if created_at_val else '',
+                "ts_iso": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(created_at_val)) if created_at_val else '',
                 "status_updated_at": status_updated_val,
-                "status_updated_at_iso": time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(status_updated_val)) if status_updated_val else '',
+                "status_updated_at_iso": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(status_updated_val)) if status_updated_val else '',
                 "gps_valid": True,
                 "is_fixed": bool(d.is_fixed),
                 "fixed_at": int(d.fixed_at) if d.fixed_at else None
@@ -2931,9 +2931,9 @@ def reports_data():
             'type': r.obstruction_type,
             'photo': r.photo_path,
             'created_at': created_at_val,
-            'created_at_iso': time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(created_at_val)) if created_at_val else '',
+            'created_at_iso': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(created_at_val)) if created_at_val else '',
             'status_updated_at': status_updated_val,
-            'status_updated_at_iso': time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(status_updated_val)) if status_updated_val else '',
+            'status_updated_at_iso': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(status_updated_val)) if status_updated_val else '',
             'is_fixed': r.is_fixed,
             'thumbs_up': r.thumbs_up_count,
             'thumbs_down': r.thumbs_down_count,
