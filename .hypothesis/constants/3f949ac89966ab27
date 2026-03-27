@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\engine\results.py
+# hypothesis_version: 6.151.9
+
+[0.03, 128, 255, '%g ', '(no detections), ', '.jpg', 'Arial.ttf', '__getitem__', 'a', 'box', 'boxes', 'class', 'confidence', 'cpu', 'cuda', 'im.jpg', 'inference', 'instance', 'keypoints', 'masks', 'name', 'numpy', 'obb', 'postprocess', 'preprocess', 'probs', 'segments', 'to', 'track_id', 'utf-8', 'visible', 'x', 'y']

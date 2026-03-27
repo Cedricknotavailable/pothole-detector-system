@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\models\yolo\detect\val.py
+# hypothesis_version: 6.151.9
+
+[0.1, 0.5, 0.9, 0.95, 255, '%11.3g', '%11i', '%11s', '%22s', 'AP_50', 'AP_all', 'AP_large', 'AP_medium', 'AP_small', 'APc', 'APf', 'APr', 'Box', 'Box(P', 'Class', 'Images', 'Instances', 'R', 'all', 'annotations', 'batch_idx', 'bbox', 'bboxes', 'category_id', 'cls', 'coco', 'conf', 'cuda', 'detect', 'end2end', 'extra', 'file_name', 'fitness', 'im_file', 'image_id', 'img', 'imgsz', 'labels', 'lvis', 'mAP50', 'mAP50-95)', 'metrics/mAP50-95(B)', 'metrics/mAP_large(B)', 'metrics/mAP_small(B)', 'obb', 'ori_shape', 'path', 'pred_cls', 'predictions.json', 'ratio_pad', 'score', 'target_cls', 'target_img', 'tp', 'val']

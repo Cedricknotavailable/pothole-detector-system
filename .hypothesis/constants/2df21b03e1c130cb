@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\torch\mps\event.py
+# hypothesis_version: 6.151.9
+
+['Event', '_mps_releaseEvent']

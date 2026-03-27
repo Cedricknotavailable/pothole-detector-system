@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\http_constants.py
+# hypothesis_version: 6.151.9
+
+[100, 1000, 10000, '-', 'X-Bz-Info-', 'hex_digits_at_end', 'large_file_sha1', 'sse_c_key_id']

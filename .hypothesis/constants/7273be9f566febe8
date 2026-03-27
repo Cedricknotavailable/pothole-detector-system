@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\progress.py
+# hypothesis_version: 6.151.9
+
+[0.1, 0.2, 100.0, '     %d%%', '    DONE.', 'B', 'bytes_completed(%d)', 'close()', 'set_total_bytes(%d)']

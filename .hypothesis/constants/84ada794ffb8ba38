@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\models\rtdetr\val.py
+# hypothesis_version: 6.151.9
+
+[0.0, 'RTDETRValidator', 'bbox', 'bboxes', 'category_id', 'cls', 'conf', 'file_name', 'im_file', 'image_id', 'ori_shape', 'score', 'val', 'xywh']

@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\engine\model.py
+# hypothesis_version: 6.151.9
+
+[0.1, 0.25, 640, '.', '.yaml', '.yml', ':4096:8', 'Argument', 'Arguments', 'batch', 'benchmark', 'cfg', 'conf', 'data', 'date', 'detect', 'device', 'docs', 'embed', 'export', 'grpc', 'http', 'http://', 'https://', 'hub-sdk>=0.0.12', 'imgsz', 'license', 'metrics', 'mode', 'mode=predict', 'mode=track', 'model', 'name', 'names', 'obb', 'os', 'predict', 'predictor', 'pretrained', 'project', 'prompts', 'pt', 'rect', 'reset_parameters', 'resume', 'rtmp://', 'rtsp://', 'save', 'saved_model.pt', 'session', 'set_prompts', 'single_cls', 'task', 'tcp://', 'track', 'trackers', 'train', 'trainer', 'transforms', 'ul://', 'ultralytics', 'val', 'validator', 'verbose', 'version', 'weights_dir', 'yolo', 'yolo26n.pt']

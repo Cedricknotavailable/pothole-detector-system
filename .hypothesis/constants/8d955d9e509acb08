@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\data\dataset.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1.0, 100, 1000, 638214, 640704, 3662412, 3681235, './labels.cache', '.cache', '.npy', '/', '1.0.3', 'annotations', 'batch_idx', 'bbox', 'bbox_format', 'bboxes', 'caption', 'channels', 'close_mosaic', 'cls', 'detect', 'disk', 'file_name', 'hash', 'height', 'im_file', 'image_id', 'images', 'img', 'instances', 'iscrowd', 'keypoints', 'kpt_shape', 'labels', 'masks', 'msgs', 'names', 'nc', 'normalized', 'obb', 'pose', 'ram', 'results', 'segment', 'segmentation', 'segments', 'sem_masks', 'shape', 'text_feats', 'texts', 'tokens_positive', 'version', 'visuals', 'width', 'xywh']

@@ -335,6 +335,23 @@ class Reaction(db.Model):
     )
 
 
+class ReportFlag(db.Model):
+    """
+    Tracks community flags on reports for false report detection.
+    Enforces one flag per user per report through unique constraint.
+    """
+    __tablename__ = 'report_flag'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    report_id = db.Column(db.Integer, db.ForeignKey('report.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    created_at = db.Column(db.Integer, nullable=False, default=lambda: int(time.time()))
+    
+    __table_args__ = (
+        db.UniqueConstraint('report_id', 'user_id', name='unique_report_user_flag'),
+    )
+
+
 class Detection(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     label = db.Column(db.String(50), nullable=False)
@@ -632,6 +649,38 @@ with app.app_context():
         except Exception:
             db.session.rollback()
 
+    # Ensure report_flag table exists (safe migration guard)
+    try:
+        db.session.execute(text("SELECT 1 FROM report_flag LIMIT 1"))
+    except Exception:
+        db.session.rollback()
+        try:
+            db.session.execute(text(
+                "CREATE TABLE IF NOT EXISTS report_flag ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "report_id INTEGER NOT NULL, "
+                "user_id INTEGER NOT NULL, "
+                "created_at INTEGER NOT NULL, "
+                "FOREIGN KEY (report_id) REFERENCES report(id) ON DELETE CASCADE, "
+                "FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE, "
+                "UNIQUE(report_id, user_id)"
+                ")"
+            ))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_report_flag_report ON report_flag(report_id)"))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_report_flag_user ON report_flag(user_id)"))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+    
+    # Add default community_false_report_threshold setting
+    try:
+        threshold_setting = Settings.query.filter_by(key='community_false_report_threshold').first()
+        if not threshold_setting:
+            db.session.add(Settings(key='community_false_report_threshold', value='3'))
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
+
 model = YOLO("best.pt")  # use your model path
 camera = None
 gps_latest = {"lat": None, "lon": None, "valid": False, "ts": None}
@@ -907,66 +956,71 @@ def login():
         identifier = (request.form.get('username') or '').strip()
         password = request.form.get('password') or ''
 
-        errors = []
-        field_errors = {"username": [], "password": []}
+        field_errors = {}
 
+        # Validate empty fields
         if not identifier:
-            errors.append('Username or email is required.')
-            field_errors["username"].append('Username or email is required.')
+            field_errors['username'] = ['Username or email is required']
         if not password:
-            errors.append('Password is required.')
-            field_errors["password"].append('Password is required.')
+            field_errors['password'] = ['Password is required']
 
+        # If there are empty field errors, return early
+        if field_errors:
+            return render_template('/login.html', field_errors=field_errors, values={"username": identifier})
+
+        # Try to find user by username or email
         user = None
-        if not errors:
-            try:
-                is_email = bool(re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', identifier))
-                if is_email:
-                    user = User.query.filter(func.lower(User.email) == identifier.lower()).first()
-                else:
-                    user = User.query.filter_by(username=identifier).first()
-            except Exception:
-                user = None
-                errors.append('Unable to process login right now. Please try again.')
+        try:
+            is_email = bool(re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', identifier))
+            if is_email:
+                user = User.query.filter(func.lower(User.email) == identifier.lower()).first()
+            else:
+                user = User.query.filter(func.lower(User.username) == identifier.lower()).first()
+        except Exception:
+            field_errors['username'] = ['Unable to process login right now. Please try again.']
+            return render_template('/login.html', field_errors=field_errors, values={"username": identifier})
 
-        if not errors:
-            if user is None or (not user.check_password(password)):
-                errors.append('Invalid username or email, or password.')
-                field_errors["password"].append('Invalid username or email, or password.')
+        # Check if user exists
+        if user is None:
+            field_errors['username'] = ['Username or email not found']
+            return render_template('/login.html', field_errors=field_errors, values={"username": identifier})
 
-        if not errors:
-            user_status = str(getattr(user, 'status', '') or '').strip().lower()
-            if user_status == 'locked':
-                errors.append('Your account is locked. Please contact an administrator.')
-                field_errors["username"].append('Your account is locked. Please contact an administrator.')
-            elif user_status == 'suspended':
-                now_ts = int(time.time())
-                until_ts = getattr(user, 'suspended_until', None)
-                if until_ts is None:
-                    until_ts = now_ts + 5 * 60
-                    user.suspended_until = int(until_ts)
-                    try:
-                        db.session.commit()
-                    except Exception:
-                        db.session.rollback()
+        # Check password
+        if not user.check_password(password):
+            field_errors['password'] = ['Incorrect password']
+            return render_template('/login.html', field_errors=field_errors, values={"username": identifier})
 
-                if int(until_ts) > now_ts:
-                    remaining = int(until_ts) - now_ts
-                    minutes = remaining // 60
-                    seconds = remaining % 60
-                    errors.append(f'Your account is suspended. Try again in {minutes}m {seconds}s.')
-                    field_errors["username"].append(f'Your account is suspended. Try again in {minutes}m {seconds}s.')
-                else:
-                    user.status = 'active'
-                    user.suspended_until = None
-                    try:
-                        db.session.commit()
-                    except Exception:
-                        db.session.rollback()
+        # Check account status
+        user_status = str(getattr(user, 'status', '') or '').strip().lower()
+        if user_status == 'locked':
+            field_errors['username'] = ['Your account is locked. Please contact an administrator.']
+            return render_template('/login.html', field_errors=field_errors, values={"username": identifier})
+        elif user_status == 'suspended':
+            now_ts = int(time.time())
+            until_ts = getattr(user, 'suspended_until', None)
+            if until_ts is None:
+                until_ts = now_ts + 5 * 60
+                user.suspended_until = int(until_ts)
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
 
-        if errors:
-            return render_template('/login.html', errors=errors, field_errors=field_errors, values={"username": identifier})
+            if int(until_ts) > now_ts:
+                remaining = int(until_ts) - now_ts
+                minutes = remaining // 60
+                seconds = remaining % 60
+                field_errors['username'] = [f'Your account is suspended. Try again in {minutes}m {seconds}s.']
+                return render_template('/login.html', field_errors=field_errors, values={"username": identifier})
+            else:
+                user.status = 'active'
+                user.suspended_until = None
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
 
+        # Success - log in user
         session['user_id'] = int(user.id)
         _get_csrf_token()
         write_audit_log('USER_LOGIN', 'user', int(user.id), {'username': user.username})
@@ -974,7 +1028,7 @@ def login():
             return redirect(url_for('index_page'))
         return redirect(url_for('map_page'))
 
-    return render_template('/login.html', errors=[], field_errors={"username": [], "password": []}, values={})
+    return render_template('/login.html', field_errors={}, values={})
 
 
 @app.route('/recover', methods=['GET', 'POST'])
@@ -1066,60 +1120,56 @@ def test_emailjs():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'GET':
-        return render_template('/register.html', errors=[], field_errors={"username": [], "email": [], "password": []}, values={})
+        return render_template('/register.html', errors=[], field_errors={}, values={})
     
     # POST request - handle registration
     username = (request.form.get('username') or '').strip()
     email = (request.form.get('email') or '').strip()
     password = request.form.get('password') or ''
 
-    errors = []
-    field_errors = {"username": [], "email": [], "password": []}
+    field_errors = {}
 
+    # Username validation
     if not username:
-        errors.append('Username is required.')
-        field_errors["username"].append('Username is required.')
-    if not email:
-        errors.append('Email is required.')
-        field_errors["email"].append('Email is required.')
+        field_errors.setdefault('username', []).append('Username is required')
+    elif len(username) < 3:
+        field_errors.setdefault('username', []).append('Username must be at least 3 characters')
     else:
-        if not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
-            errors.append('Email address is not valid.')
-            field_errors["email"].append('Email address is not valid.')
+        # Check uniqueness
+        try:
+            if User.query.filter_by(username=username).first() is not None:
+                field_errors.setdefault('username', []).append('Username already exists')
+        except Exception:
+            field_errors.setdefault('username', []).append('Unable to validate username. Please try again.')
+
+    # Email validation
+    if not email:
+        field_errors.setdefault('email', []).append('Email is required')
+    elif not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
+        field_errors.setdefault('email', []).append('Invalid email format')
+    else:
+        # Check uniqueness
+        try:
+            if User.query.filter_by(email=email).first() is not None:
+                field_errors.setdefault('email', []).append('Email already registered')
+        except Exception:
+            field_errors.setdefault('email', []).append('Unable to validate email. Please try again.')
+
+    # Password validation
     if not password:
-        errors.append('Password is required.')
-        field_errors["password"].append('Password is required.')
-
-    if password:
-        pwd_errors = []
+        field_errors.setdefault('password', []).append('Password is required')
+    else:
         if len(password) < 8:
-            pwd_errors.append('be at least 8 characters long')
+            field_errors.setdefault('password', []).append('Password must be at least 8 characters')
         if not re.search(r'[A-Z]', password):
-            pwd_errors.append('contain at least one uppercase letter')
+            field_errors.setdefault('password', []).append('Password must contain at least one uppercase letter')
         if not re.search(r'[a-z]', password):
-            pwd_errors.append('contain at least one lowercase letter')
+            field_errors.setdefault('password', []).append('Password must contain at least one lowercase letter')
         if not re.search(r'\d', password):
-            pwd_errors.append('contain at least one number')
-        if not re.search(r'[^A-Za-z0-9]', password):
-            pwd_errors.append('contain at least one special character')
-        if pwd_errors:
-            msg = 'Password must ' + ', '.join(pwd_errors) + '.'
-            errors.append(msg)
-            field_errors["password"].append(msg)
+            field_errors.setdefault('password', []).append('Password must contain at least one number')
 
-    # Uniqueness checks should run regardless of other errors if values are provided
-    try:
-        if username and User.query.filter_by(username=username).first() is not None:
-            errors.append('Username is already taken.')
-            field_errors["username"].append('Username is already taken.')
-        if email and User.query.filter_by(email=email).first() is not None:
-            errors.append('Email is already registered.')
-            field_errors["email"].append('Email is already registered.')
-    except Exception:
-        errors.append('Unable to validate uniqueness at the moment. Please try again.')
-
-    if errors:
-        return jsonify({'success': False, 'errors': field_errors, 'message': errors[0]})
+    if field_errors:
+        return jsonify({'success': False, 'errors': field_errors, 'message': 'Please fix the errors below'})
 
     # Generate OTP
     try:
@@ -1489,6 +1539,23 @@ def settings_page():
             except ValueError:
                 errors.append('False report threshold must be a number.')
 
+            # 4. Community False Report Threshold
+            community_threshold = request.form.get('community_false_report_threshold', '').strip()
+            try:
+                val = int(community_threshold)
+                if val < 1:
+                    errors.append('Community false report threshold must be at least 1.')
+                elif val > 10:
+                    errors.append('Community false report threshold must not exceed 10.')
+                else:
+                    s = Settings.query.filter_by(key='community_false_report_threshold').first()
+                    if not s:
+                        s = Settings(key='community_false_report_threshold')
+                        db.session.add(s)
+                    s.value = str(val)
+            except ValueError:
+                errors.append('Community false report threshold must be a number.')
+
             if not errors:
                 try:
                     db.session.commit()
@@ -1497,6 +1564,7 @@ def settings_page():
                         'fixed_defect_expiration_days': expiration_days,
                         'auto_fix_threshold': auto_fix_threshold,
                         'false_report_threshold': false_report_threshold,
+                        'community_false_report_threshold': community_threshold,
                     })
                 except Exception as e:
                     db.session.rollback()
@@ -1518,6 +1586,8 @@ def settings_page():
         settings_map['auto_fix_threshold'] = '3'
     if 'false_report_threshold' not in settings_map:
         settings_map['false_report_threshold'] = '5'
+    if 'community_false_report_threshold' not in settings_map:
+        settings_map['community_false_report_threshold'] = '3'
         
     b2_connected = False
     backups = []
@@ -2084,22 +2154,35 @@ def reports_page():
         elif obstruction_type not in allowed_types:
             errors.append('Invalid obstruction type.')
 
+        # Photo validation - now required
+        if not photo or not getattr(photo, 'filename', None) or not photo.filename.strip():
+            errors.append('Photo is required')
+        
         photo_rel = None
         if photo and getattr(photo, 'filename', None):
             fname = (photo.filename or '').strip()
-            if not _allowed_image(fname):
-                errors.append('Photo must be a .jpg, .jpeg, or .png image.')
-            else:
-                safe = secure_filename(fname)
-                ext = safe.rsplit('.', 1)[-1].lower()
-                unique = f"{uuid4().hex}.{ext}"
-                try:
-                    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-                    abs_path = os.path.join(UPLOAD_FOLDER, unique)
-                    photo.save(abs_path)
-                    photo_rel = f"uploads/reports/{unique}"
-                except Exception:
-                    errors.append('Unable to save uploaded photo. Please try again.')
+            if fname:  # Only validate if filename exists
+                if not _allowed_image(fname):
+                    errors.append('Photo must be a .jpg, .jpeg, or .png image.')
+                else:
+                    # Validate file size (max 5MB)
+                    photo.seek(0, 2)  # Seek to end
+                    file_size = photo.tell()
+                    photo.seek(0)  # Reset to beginning
+                    
+                    if file_size > 5 * 1024 * 1024:  # 5MB
+                        errors.append('File too large. Maximum size is 5MB.')
+                    else:
+                        safe = secure_filename(fname)
+                        ext = safe.rsplit('.', 1)[-1].lower()
+                        unique = f"{uuid4().hex}.{ext}"
+                        try:
+                            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                            abs_path = os.path.join(UPLOAD_FOLDER, unique)
+                            photo.save(abs_path)
+                            photo_rel = f"uploads/reports/{unique}"
+                        except Exception:
+                            errors.append('Unable to save uploaded photo. Please try again.')
 
         if not errors:
             title = f"{obstruction_type} report"
@@ -3036,6 +3119,69 @@ def react_to_report(report_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/reports/<int:report_id>/flag', methods=['POST'])
+@login_required_view
+def flag_report(report_id):
+    cu = _get_current_user()
+    report = Report.query.get_or_404(report_id)
+    
+    # Check for existing flag
+    existing = ReportFlag.query.filter_by(
+        report_id=report_id,
+        user_id=cu.id
+    ).first()
+    
+    if existing:
+        return jsonify({'error': 'Already flagged'}), 400
+    
+    # Create flag
+    flag = ReportFlag(report_id=report_id, user_id=cu.id)
+    db.session.add(flag)
+    
+    # Count total flags (query includes the uncommitted flag due to autoflush)
+    flag_count = ReportFlag.query.filter_by(report_id=report_id).count()
+    
+    # Check threshold
+    threshold_setting = Settings.query.filter_by(key='community_false_report_threshold').first()
+    threshold = int(threshold_setting.value) if threshold_setting else 3
+    
+    auto_flagged = False
+    if flag_count >= threshold and not report.is_false_report:
+        report.is_false_report = True
+        auto_flagged = True
+        
+        # Increment author's false report count
+        author = User.query.get(report.user_id)
+        if author:
+            author.false_reports_count += 1
+        
+        # Create notification for author
+        notif = Notification(
+            user_id=report.user_id,
+            title='Report Flagged as False',
+            message=f'Your report "{report.title}" has been flagged as false by the community.',
+            link='/my-reports'
+        )
+        db.session.add(notif)
+        
+        # Audit log
+        write_audit_log(
+            action='REPORT_AUTO_FLAGGED_FALSE',
+            resource_type='report',
+            resource_id=report_id,
+            detail={'flag_count': flag_count, 'threshold': threshold}
+        )
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'flag_count': flag_count,
+        'auto_flagged': auto_flagged,
+        'threshold': threshold
+    })
 
 
 @app.route('/reports/<int:report_id>/fix', methods=['POST'])

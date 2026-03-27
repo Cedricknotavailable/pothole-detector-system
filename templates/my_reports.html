@@ -120,7 +120,7 @@
 
                 <div class="control actions">
                   <button class="btn" type="submit">Apply</button>
-                  <a class="btn secondary" href="{{ url_for('my_reports_page') }}">Reset</a>
+                  <a class="btn secondary" href="{{ url_for('my_reports_page') }}">Clear Filters</a>
                 </div>
               </div>
             </form>
@@ -319,5 +319,6 @@
       }
     </script>
     <script src="{{ url_for('static', filename='js/mobile-nav.js') }}"></script>
+    {% include 'logout_modal.html' %}
   </body>
 </html>

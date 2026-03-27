@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\v2\raw_simulator.py
+# hypothesis_version: 6.151.9
+
+[1000, 'account-%d', 'appKey%d', 'appKeyId%d', 'auth token expired', 'auth_token_%d', 'auth_token_expired', 'b2-cache-control', 'bucketId', 'bucketName', 'capabilities', 'illegal key name: ', 'master', 'masterKey-%d', 'namePrefix', 'secret key is wrong', 'unauthorized', 'writeKeys']

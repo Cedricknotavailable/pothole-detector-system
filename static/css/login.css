@@ -58,7 +58,7 @@ label {
 
 .input:focus {
   border-color: #cbd5e1;
-  box-shadow: 0 0 0 3px rgba(148,163,184,0.25);
+  box-shadow: 0 0 0 3px rgba(248, 248, 248, 0.25);
 }
 
 .actions { text-align: center; margin: 18px 0 8px; }
@@ -96,6 +96,28 @@ label {
 
 .link { color: #9ec5ff; text-decoration: none; }
 .link:hover { text-decoration: underline; }
+
+/* Error states */
+.input-error {
+  border-color: #ef4444 !important;
+  background: #fef2f2;
+}
+
+.input-error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+.field-error {
+  margin-top: 6px;
+}
+
+.error-message {
+  font-size: 13px;
+  color: #dc2626;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 4px;
+}
 
 .helper { font-size: 13px; color: #6b7280; margin-top: 6px; }
 .notice { margin-top: 12px; background: #f8fafc; border: 1px solid #e5e7eb; color: #4b5563; border-radius: 8px; padding: 10px 12px; font-size: 13px; }

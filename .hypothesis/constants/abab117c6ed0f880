@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\torch\utils\data\datapipes\iter\callable.py
+# hypothesis_version: 6.151.9
+
+['CollateResult', 'CollatorIterDataPipe', 'MapperIterDataPipe', '_T_co', 'collate', 'map']

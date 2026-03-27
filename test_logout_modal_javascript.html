@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logout Modal JavaScript Test</title>
+</head>
+<body>
+    <h1>Logout Modal JavaScript Test</h1>
+    
+    <!-- Test logout link -->
+    <a href="/logout" id="testLogoutLink">Test Logout Link</a>
+    
+    <!-- Include the logout modal component -->
+    <div id="modalContainer"></div>
+    
+    <div id="testResults" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;">
+        <h2>Test Results:</h2>
+        <ul id="resultsList"></ul>
+    </div>
+    
+    <script>
+        // Load the logout modal HTML
+        fetch('templates/logout_modal.html')
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('modalContainer').innerHTML = html;
+                runTests();
+            });
+        
+        function addResult(testName, passed, message) {
+            const li = document.createElement('li');
+            li.style.color = passed ? 'green' : 'red';
+            li.textContent = `${passed ? '✓' : '✗'} ${testName}: ${message}`;
+            document.getElementById('resultsList').appendChild(li);
+        }
+        
+        function runTests() {
+            console.log('Starting logout modal JavaScript tests...');
+            
+            // Test 1: Check if modal exists
+            const modal = document.getElementById('logoutModal');
+            addResult('Modal Element Exists', !!modal, modal ? 'Modal found in DOM' : 'Modal not found');
+            
+            // Test 2: Check if modal is initially hidden
+            const initiallyHidden = modal && modal.style.display === 'none';
+            addResult('Modal Initially Hidden', initiallyHidden, `Display: ${modal ? modal.style.display : 'N/A'}`);
+            
+            // Test 3: Check if showLogoutModal function exists
+            const showFunctionExists = typeof showLogoutModal === 'function';
+            addResult('showLogoutModal Function Exists', showFunctionExists, showFunctionExists ? 'Function defined' : 'Function not found');
+            
+            // Test 4: Check if closeLogoutModal function exists
+            const closeFunctionExists = typeof closeLogoutModal === 'function';
+            addResult('closeLogoutModal Function Exists', closeFunctionExists, closeFunctionExists ? 'Function defined' : 'Function not found');
+            
+            // Test 5: Check if confirmLogout function exists
+            const confirmFunctionExists = typeof confirmLogout === 'function';
+            addResult('confirmLogout Function Exists', confirmFunctionExists, confirmFunctionExists ? 'Function defined' : 'Function not found');
+            
+            // Test 6: Test showLogoutModal functionality
+            if (showFunctionExists && modal) {
+                showLogoutModal();
+                const modalVisible = modal.style.display === 'flex';
+                addResult('showLogoutModal Shows Modal', modalVisible, `Display after show: ${modal.style.display}`);
+                
+                // Test 7: Test closeLogoutModal functionality
+                if (closeFunctionExists) {
+                    closeLogoutModal();
+                    const modalHidden = modal.style.display === 'none';
+                    addResult('closeLogoutModal Hides Modal', modalHidden, `Display after close: ${modal.style.display}`);
+                }
+            }
+            
+            // Test 8: Check if logout links have event listeners attached
+            setTimeout(() => {
+                const logoutLink = document.getElementById('testLogoutLink');
+                if (logoutLink) {
+                    // Simulate click and check if default is prevented
+                    let defaultPrevented = false;
+                    const clickEvent = new MouseEvent('click', {
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    
+                    // Override preventDefault to track if it was called
+                    const originalPreventDefault = clickEvent.preventDefault;
+                    clickEvent.preventDefault = function() {
+                        defaultPrevented = true;
+                        originalPreventDefault.call(this);
+                    };
+                    
+                    logoutLink.dispatchEvent(clickEvent);
+                    
+                    addResult('Logout Link Click Intercepted', defaultPrevented, defaultPrevented ? 'Default navigation prevented' : 'Default navigation not prevented');
+                    
+                    // Check if modal is shown after click
+                    const modalShownAfterClick = modal && modal.style.display === 'flex';
+                    addResult('Modal Shown After Link Click', modalShownAfterClick, `Display: ${modal ? modal.style.display : 'N/A'}`);
+                    
+                    // Close modal for next test
+                    if (modal) closeLogoutModal();
+                }
+            }, 100);
+            
+            // Test 9: Test Escape key handler
+            setTimeout(() => {
+                if (modal) {
+                    showLogoutModal();
+                    const escapeEvent = new KeyboardEvent('keydown', { key: 'Escape' });
+                    document.dispatchEvent(escapeEvent);
+                    
+                    setTimeout(() => {
+                        const modalClosedByEscape = modal.style.display === 'none';
+                        addResult('Escape Key Closes Modal', modalClosedByEscape, `Display after Escape: ${modal.style.display}`);
+                    }, 50);
+                }
+            }, 200);
+            
+            // Test 10: Test overlay click handler
+            setTimeout(() => {
+                if (modal) {
+                    showLogoutModal();
+                    const overlay = modal.querySelector('.modal-overlay');
+                    if (overlay) {
+                        overlay.click();
+                        setTimeout(() => {
+                            const modalClosedByOverlay = modal.style.display === 'none';
+                            addResult('Overlay Click Closes Modal', modalClosedByOverlay, `Display after overlay click: ${modal.style.display}`);
+                        }, 50);
+                    }
+                }
+            }, 350);
+            
+            console.log('All tests completed!');
+        }
+    </script>
+</body>
+</html>

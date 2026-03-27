@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\models\yolo\model.py
+# hypothesis_version: 6.151.9
+
+[640, '-world', '.pt', '.yaml', '.yml', 'RTDETR', 'agnostic_nms', 'batch', 'bboxes', 'classify', 'cls', 'detect', 'device', 'half', 'imgsz', 'mode', 'model', 'names', 'obb', 'pose', 'predict', 'predictor', 'rect', 'save', 'segment', 'stream', 'task', 'trainer', 'val', 'validator', 'verbose', 'video', 'yolo26n.pt', 'yoloe', 'yoloe-11s-seg.pt', 'yolov8s-world.pt']

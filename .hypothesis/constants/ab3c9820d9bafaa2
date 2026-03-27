@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\utils\autobatch.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.6, 1.0, 640, 1024, 'AutoBatch: ', 'cpu', 'mps']

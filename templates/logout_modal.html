@@ -1,0 +1,160 @@
+<!-- Logout Confirmation Modal -->
+<div id="logoutModal" class="modal" style="display:none;">
+    <div class="modal-overlay" onclick="closeLogoutModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Confirm Logout</h3>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to log out?</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn secondary" onclick="closeLogoutModal()">Cancel</button>
+            <button class="btn primary" onclick="confirmLogout()">Log Out</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+}
+
+.modal-content {
+    position: relative;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    max-width: 400px;
+    width: 90%;
+    z-index: 10000;
+    animation: modalSlideIn 0.2s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.modal-body {
+    padding: 20px 24px;
+    color: #475569;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.modal-footer {
+    padding: 16px 24px 20px;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.modal-footer .btn {
+    min-width: 100px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    font-size: 14px;
+    transition: background-color 0.15s, transform 0.02s;
+}
+
+.modal-footer .btn:active {
+    transform: translateY(1px);
+}
+
+.modal-footer .btn.secondary {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.modal-footer .btn.secondary:hover {
+    background: #e2e8f0;
+}
+
+.modal-footer .btn.primary {
+    background: #dc2626;
+    color: white;
+}
+
+.modal-footer .btn.primary:hover {
+    background: #b91c1c;
+}
+</style>
+
+<script>
+// Intercept logout link clicks
+document.addEventListener('DOMContentLoaded', function() {
+    const logoutLinks = document.querySelectorAll('a[href="/logout"]');
+    
+    logoutLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            showLogoutModal();
+        });
+    });
+});
+
+function showLogoutModal() {
+    const modal = document.getElementById('logoutModal');
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+
+function closeLogoutModal() {
+    const modal = document.getElementById('logoutModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function confirmLogout() {
+    window.location.href = '/logout';
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeLogoutModal();
+    }
+});
+</script>

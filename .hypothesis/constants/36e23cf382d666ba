@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\nn\modules\block.py
+# hypothesis_version: 6.151.9
+
+[-10.0, -1.0, -0.5, 0.0, 0.01, 0.02, 0.07, 0.5, 1.0, 1.2, 2.0, 128, 256, 512, 'AConv', 'ADown', 'Attention', 'BNContrastiveHead', 'Bottleneck', 'BottleneckCSP', 'C1', 'C2', 'C2PSA', 'C2f', 'C2fAttn', 'C2fCIB', 'C2fPSA', 'C3', 'C3Ghost', 'C3TR', 'C3k2', 'C3x', 'CBFuse', 'CBLinear', 'CIB', 'ContrastiveHead', 'DEFAULT', 'DFL', 'ELAN1', 'GhostBottleneck', 'HGBlock', 'HGStem', 'ImagePoolingAttn', 'PSA', 'Proto', 'RepC3', 'RepNCSPELAN4', 'RepVGGDW', 'ResNetLayer', 'SCDown', 'SPP', 'SPPELAN', 'SPPF', 'TorchVision', 'add', 'bchw,bkc->bkhw', 'bmchw,bnmc->bmhwn', 'bmnk,bkmc->bnmc', 'bnmc,bkmc->bmnk', 'conv1', 'cov', 'get_model', 'loc', 'mask', 'n', 'nearest']

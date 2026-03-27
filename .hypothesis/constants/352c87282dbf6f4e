@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\account_info\abstract.py
+# hypothesis_version: 6.151.9
+
+['0000000000', 'api_url', 'bucket_id', 'buckets', 'capabilities', 'download_url', 'namePrefix', 'realm', 's3_api_url', 'self']

@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\scan\policies.py
+# hypothesis_version: 6.151.9
+
+['$', '.*?/', '/', 'exclude_dir_regexes', 'exclude_file_regexes', 'include_file_regexes']

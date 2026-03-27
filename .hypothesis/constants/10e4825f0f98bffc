@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\torch\_dynamo\polyfills\fx.py
+# hypothesis_version: 6.151.9
+
+['_fields', 'map_aggregate', 'map_arg']

@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\b2http.py
+# hypothesis_version: 6.151.9
+
+[1.0, 1.5, 128, 200, 206, 1200, '://s3.', 'ARG %d: %s', 'Accept', 'Broken pipe', 'C', 'CLASS', 'Content-Type', 'Date', 'ECONNRESET', 'EXCEPTION', 'GET', 'HEAD', 'POST', 'SysCallError', 'User-Agent', 'application/json', 'code', 'message', 'non_json_response', 'replace', 'server asked us to', 'status', 'utf-8']

@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\bucket.py
+# hypothesis_version: 6.151.9
+
+[0.0, 3600.0, 8192, '*?[', '.', '/', '0', 'accountId', 'authorizationToken', 'b2-cache-control', 'b2-content-encoding', 'b2-content-language', 'b2-expires', 'bucketId', 'bucketInfo', 'bucketName', 'bucketType', 'buckets', 'corsRules', 'data_bytes', 'defaultRetention', 'delete', 'files', 'hide', 'isFileLockEnabled', 'lifecycleRules', 'nextFileId', 'nextFileName', 'options', 'replication', 'revision', 'upload']

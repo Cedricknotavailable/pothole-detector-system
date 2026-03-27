@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\session.py
+# hypothesis_version: 6.151.9
+
+["'", ',', ', ', 'accountId', 'allowed', 'api', 'apiInfo', 'apiUrl', 'api_token_only', 'authorizationToken', 'buckets', 'capabilities', 'downloadUrl', 'name', 'namePrefix', 'recommendedPartSize', 's3ApiUrl', 'storageApi', 'unauthorized', 'uploadUrl', 'upload_part', 'upload_small', "with capabilities '", 'with no restrictions']

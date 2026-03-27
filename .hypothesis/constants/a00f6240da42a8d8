@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\models\fastsam\predict.py
+# hypothesis_version: 6.151.9
+
+[0.5, 0.9, 100, 'ViT-B/32', 'bboxes', 'clip', 'labels', 'points', 'texts']

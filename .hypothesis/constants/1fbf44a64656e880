@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\v2\application_key.py
+# hypothesis_version: 6.151.9
+
+['accountId', 'account_id', 'applicationKey', 'applicationKeyId', 'application_key', 'application_key_id', 'bucketId', 'bucket_id', 'capabilities', 'expirationTimestamp', 'keyName', 'key_name', 'namePrefix', 'name_prefix', 'options']

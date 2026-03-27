@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\hub\__init__.py
+# hypothesis_version: 6.151.9
+
+[200, 'Argument', 'Authenticated ✅', 'HUBTrainingSession', 'HUB_WEB_ROOT', 'PREFIX', 'apiKey', 'api_key', 'check_dataset', 'export_fmts_hub', 'export_model', 'format', 'get_export', 'hub-sdk>=0.0.12', 'login', 'logout', 'modelId', 'reset_model', 'torchscript', 'ultralytics_coreml', 'ultralytics_tflite', 'x-api-key']

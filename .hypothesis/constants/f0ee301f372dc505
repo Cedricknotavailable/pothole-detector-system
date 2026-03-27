@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\utils\loss.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1e-09, 1e-06, 0.01, 0.1, 0.25, 0.5, 0.75, 0.8, 1.0, 1.5, 2.0, 6.0, -100, 100, 'angle', 'batch_idx', 'bboxes', 'bilinear', 'boxes', 'cls', 'feats', 'flow_model', 'in,nhw->ihw', 'keypoints', 'kpts', 'kpts_sigma', 'mask_coefficient', 'masks', 'mean', 'nearest', 'none', 'one2many', 'one2one', 'proto', 'scores', 'sem_masks', 'sum']

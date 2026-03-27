@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\sync\policy_manager.py
+# hypothesis_version: 6.151.9
+
+['b2-to-b2', 'b2-to-local', 'local-to-b2']

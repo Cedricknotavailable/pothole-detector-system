@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\utils\tqdm.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.01, 0.03, 0.05, 0.06, 0.08, 0.1, 0.3, 0.5, 1.0, 60.0, 1000.0, 1000000.0, 1000000000.0, 100, 300, 1000, 1024, 3600, 1000000, 1048576, 1073741824, '\r\x1b[K', ' | ', ', ', '?', 'B', 'G', 'GB/s', 'GITHUB_ACTIONS', 'K', 'KB/s', 'KMGTPB', 'Known total', 'M', 'MB/s', 'Manual updates', 'OK', 'Processing stream', 'RUNPOD_POD_ID', 'Scanning files', 'Stream processing', 'T', 'Unknown total', '__len__', '__main__', 'bytes', 'chunks', 'files', 'it', 'items', '─', '━']

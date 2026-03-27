@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\account_info\sqlite_account_info.py
+# hypothesis_version: 6.151.9
+
+[493, 5000000, '.b2_account_info', 'B2_ACCOUNT_INFO', 'BEGIN', 'DELETE FROM account;', 'DELETE FROM bucket;', 'DROP TABLE account;', 'EXCLUSIVE', 'XDG_CONFIG_HOME', '[a-zA-Z0-9_\\-]{1,64}', '__doc__', 'account_auth_token', 'account_id', 'account_info', 'allowed', 'api_url', 'application_key', 'b2', 'bucketId', 'bucketName', 'buckets', 'darwin', 'download_url', 'id', 'minimum_part_size', 'name', 'rb', 'realm', 's3_api_url', 'utf-8', 'win32', '~', '~/.config']

@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\torchvision\datasets\imagenet.py
+# hypothesis_version: 6.151.9
+
+[', ', 'Split: {split}', 'data', 'devkit', 'meta.bin', 'meta.mat', 'split', 'synsets', 'train', 'val']

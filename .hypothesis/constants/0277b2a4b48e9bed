@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\models\yolo\segment\val.py
+# hypothesis_version: 6.151.9
+
+[0.5, '%11s', '%22s', 'Box', 'Box(P', 'Class', 'Images', 'Instances', 'Mask', 'Mask(P', 'R', 'annotations', 'batch_idx', 'bbox', 'bboxes', 'bilinear', 'cls', 'conf', 'counts', 'extra', 'imgsz', 'mAP50', 'mAP50-95)', 'masks', 'ori_shape', 'path', 'predictions.json', 'ratio_pad', 'segm', 'segment', 'segmentation', 'size', 'tp_m']

@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\replication\setting.py
+# hypothesis_version: 6.151.9
+
+[128, 'asReplicationSource', 'destinationBucketId', 'fileNamePrefix', 'file_name_prefix', 'includeExistingFiles', 'isEnabled', 'is_enabled', 'name', 'priority', 'replicationRuleName', 'replicationRules', 'rules', 'source_key_id', 'value']

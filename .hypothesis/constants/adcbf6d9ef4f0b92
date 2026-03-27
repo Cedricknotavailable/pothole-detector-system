@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\models\yolo\detect\train.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1.0, 255, '%11s', 'Epoch', 'GPU_mem', 'Instances', 'Size', 'bboxes', 'bilinear', 'box_loss', 'cache', 'channels', 'cls', 'cls_loss', 'cuda', 'dfl_loss', 'end2end', 'im_file', 'img', 'names', 'nc', 'rect', 'train', 'val']

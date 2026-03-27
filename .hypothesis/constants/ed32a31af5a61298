@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\optim\muon.py
+# hypothesis_version: 6.151.9
+
+[-4.775, 0.0, 1e-07, 0.001, 0.02, 0.5, 0.95, 2.0315, 3.4445, 'lr', 'momentum', 'momentum_buffer', 'momentum_buffer_SGD', 'nesterov', 'params', 'use_muon', 'weight_decay']

@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\sync\sync.py
+# hypothesis_version: 6.151.9
+
+[301, 302, 303, 1000, 'b2', 'compare_threshold', 'compare_version_mode', 'keep_days', 'keep_days_or_delete', 'local', 'must be one of :%s', 'newer_file_mode', 'sync is incomplete']

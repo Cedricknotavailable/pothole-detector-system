@@ -11,28 +11,39 @@
     <form class="card-inner" method="post" action="{{ url_for('login') }}" novalidate>
       <div class="field">
         <label for="username">Username or Email</label>
-        <input id="username" name="username" type="text" class="input" placeholder="Enter username or email" autocomplete="username" value="{{ (values.get('username') if values else '') }}" />
-        {% if field_errors and field_errors.username %}
+        <input 
+          id="username" 
+          name="username" 
+          type="text" 
+          class="input {% if field_errors and field_errors.get('username') %}input-error{% endif %}" 
+          placeholder="Enter username or email" 
+          autocomplete="username" 
+          value="{{ values.get('username', '') if values else '' }}" 
+        />
+        {% if field_errors and field_errors.get('username') %}
         <div class="field-error">
-          <ul>
-            {% for e in field_errors.username %}
-            <li>{{ e }}</li>
-            {% endfor %}
-          </ul>
+          {% for error in field_errors.username %}
+          <div class="error-message">{{ error }}</div>
+          {% endfor %}
         </div>
         {% endif %}
       </div>
 
       <div class="field">
         <label for="password">Password</label>
-        <input id="password" name="password" type="password" class="input" placeholder="Password" autocomplete="current-password" />
-        {% if field_errors and field_errors.password %}
+        <input 
+          id="password" 
+          name="password" 
+          type="password" 
+          class="input {% if field_errors and field_errors.get('password') %}input-error{% endif %}" 
+          placeholder="Password" 
+          autocomplete="current-password" 
+        />
+        {% if field_errors and field_errors.get('password') %}
         <div class="field-error">
-          <ul>
-            {% for e in field_errors.password %}
-            <li>{{ e }}</li>
-            {% endfor %}
-          </ul>
+          {% for error in field_errors.password %}
+          <div class="error-message">{{ error }}</div>
+          {% endfor %}
         </div>
         {% endif %}
       </div>
@@ -47,5 +58,28 @@
       <small><a class="link" href="{{ url_for('recover') }}">Forgot Password?</a></small>
     </div>
   </div>
+
+  <script>
+    // Clear field errors when user starts typing
+    document.addEventListener('DOMContentLoaded', function() {
+      const inputs = document.querySelectorAll('.input-error');
+      
+      inputs.forEach(input => {
+        input.addEventListener('input', function() {
+          // Remove error class
+          this.classList.remove('input-error');
+          
+          // Remove error message
+          const field = this.closest('.field');
+          if (field) {
+            const errorDiv = field.querySelector('.field-error');
+            if (errorDiv) {
+              errorDiv.remove();
+            }
+          }
+        });
+      });
+    });
+  </script>
 </body>
 </html>

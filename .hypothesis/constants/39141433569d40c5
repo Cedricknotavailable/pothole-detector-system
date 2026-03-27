@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\click\testing.py
+# hypothesis_version: 6.151.9
+
+['<stderr>', '<stdin>', '<stdout>', 'BaseCommand', 'CliRunner', 'backslashreplace', 'okay', 'os.PathLike[str]', 'prog_name', 'r', 'read', 'replace', 'root', 'utf-8', 'w']

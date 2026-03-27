@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\torch\distributed\tensor\placement_types.py
+# hypothesis_version: 6.151.9
+
+['MaskPartial', 'Partial', 'Placement', 'R', 'Replicate', 'Replicate()', 'Shard', 'avg', 'mask_buffer', 'max', 'min', 'offset_dim', 'offset_shape', 'sum']

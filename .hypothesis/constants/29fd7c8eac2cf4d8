@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\models\yolo\segment\train.py
+# hypothesis_version: 6.151.9
+
+['box_loss', 'channels', 'cls_loss', 'dfl_loss', 'nc', 'seg_loss', 'segment', 'sem_loss', 'task']

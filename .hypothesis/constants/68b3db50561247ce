@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\utils\nms.py
+# hypothesis_version: 6.151.9
+
+[0.05, 0.25, 0.45, 1.0, 2.0, 300, 7680, 30000, 'torchvision']

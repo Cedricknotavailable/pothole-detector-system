@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\encryption\setting.py
+# hypothesis_version: 6.151.9
+
+['******', 'algorithm', 'customerKey', 'customerKeyMd5', 'fileInfo', 'key', 'mode', 'none', 'serverSideEncryption', 'unknown', 'value']

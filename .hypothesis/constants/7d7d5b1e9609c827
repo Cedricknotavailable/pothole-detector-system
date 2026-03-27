@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\large_file\unfinished_large_file.py
+# hypothesis_version: 6.151.9
+
+['accountId', 'b2-cache-control', 'b2-content-encoding', 'b2-content-language', 'b2-expires', 'bucketId', 'contentType', 'fileId', 'fileInfo', 'fileName']

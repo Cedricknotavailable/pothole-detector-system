@@ -84,6 +84,12 @@
       if (errorDiv) {
         errorDiv.querySelector('li').textContent = message;
         errorDiv.style.display = 'block';
+        
+        // Add error class to input
+        const input = document.getElementById(fieldId);
+        if (input) {
+          input.classList.add('input-error');
+        }
       }
     }
 
@@ -91,6 +97,9 @@
       ['username', 'email', 'password', 'otp'].forEach(field => {
         const errorDiv = document.getElementById(field + 'Error');
         if (errorDiv) errorDiv.style.display = 'none';
+        
+        const input = document.getElementById(field);
+        if (input) input.classList.remove('input-error');
       });
       registrationStatus.style.display = 'none';
     }
@@ -125,6 +134,25 @@
       }, 1000);
     }
 
+    // Clear field errors when user starts typing
+    document.addEventListener('DOMContentLoaded', function() {
+      ['username', 'email', 'password'].forEach(fieldId => {
+        const input = document.getElementById(fieldId);
+        if (input) {
+          input.addEventListener('input', function() {
+            // Remove error class
+            this.classList.remove('input-error');
+            
+            // Remove error message
+            const errorDiv = document.getElementById(fieldId + 'Error');
+            if (errorDiv) {
+              errorDiv.style.display = 'none';
+            }
+          });
+        }
+      });
+    });
+
     // Handle registration form submission
     registerForm.addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -151,10 +179,11 @@
           if (data.errors) {
             Object.keys(data.errors).forEach(field => {
               if (data.errors[field].length > 0) {
-                showError(field, data.errors[field][0]);
+                showError(field, data.errors[field].join(', '));
               }
             });
           }
+          showRegistrationStatus(data.message || 'Please fix the errors below', true);
           registerBtn.disabled = false;
           registerBtn.textContent = 'Register';
           return;

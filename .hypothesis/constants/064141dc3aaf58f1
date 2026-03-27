@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\file_lock.py
+# hypothesis_version: 6.151.9
+
+[',', 'X-Bz-File-Legal-Hold', 'action', 'compliance', 'days', 'defaultRetention', 'duration', 'fileRetention', 'folder', 'governance', 'hide', 'isFileLockEnabled', 'legalHold', 'mode', 'off', 'on', 'period', 'retainUntilTimestamp', 'unit', 'unknown', 'value', 'years']

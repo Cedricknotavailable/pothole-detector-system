@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\nn\modules\transformer.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1e-06, 0.5, 1.0, 2.0, 10000.0, 256, 1024, 2048, 'AIFI', 'LayerNorm2d', 'MLP', 'MLPBlock', 'MSDeformAttn', 'TransformerBlock', 'TransformerLayer', 'act', 'ij', 'out_norm', 'residual', 'sigmoid']

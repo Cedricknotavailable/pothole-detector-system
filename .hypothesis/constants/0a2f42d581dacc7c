@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\torch\distributed\_shard\metadata.py
+# hypothesis_version: 6.151.9
+
+['placement', 'shard_offsets', 'shard_sizes']

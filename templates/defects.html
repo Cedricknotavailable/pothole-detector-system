@@ -132,7 +132,7 @@
 
                   <div class="control actions">
                     <button class="btn" type="submit">Apply</button>
-                    <a class="btn secondary" href="{{ url_for('defects_page') }}">Reset</a>
+                    <a class="btn secondary" href="{{ url_for('defects_page') }}">Clear Filters</a>
                   </div>
                 </div>
               </div>
@@ -341,5 +341,6 @@
         setInterval(fetchNotifications, 30000);
       })();
     </script>
+    {% include 'logout_modal.html' %}
   </body>
 </html>

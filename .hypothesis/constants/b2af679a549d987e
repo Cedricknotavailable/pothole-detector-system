@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\torchvision\datasets\folder.py
+# hypothesis_version: 6.151.9
+
+['.bmp', '.jpeg', '.jpg', '.pgm', '.png', '.ppm', '.tif', '.tiff', '.webp', 'RGB', 'accimage', 'rb']

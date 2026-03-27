@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\torch\_inductor\runtime\cache_dir_utils.py
+# hypothesis_version: 6.151.9
+
+['/var/tmp', 'TRITON_CACHE_DIR', '[\\\\/:*?"<>|]', '_', 'torchinductor_', 'triton']

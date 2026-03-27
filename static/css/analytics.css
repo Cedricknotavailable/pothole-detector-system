@@ -27,3 +27,48 @@
     .sidebar { width: 100%; }
     .main { overflow-y: visible; }
 }
+
+/* Audit Log Styles */
+.audit-filters {
+    display: grid;
+    grid-template-columns: auto auto auto auto auto;
+    gap: 12px;
+    align-items: flex-end;
+    margin-bottom: 16px;
+}
+
+.audit-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.audit-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.audit-badge--auth { background: #dbeafe; color: #1e40af; }
+.audit-badge--user { background: #fef3c7; color: #92400e; }
+.audit-badge--report { background: #fce7f3; color: #831843; }
+.audit-badge--defect { background: #e0e7ff; color: #3730a3; }
+.audit-badge--settings { background: #f3e8ff; color: #6b21a8; }
+.audit-badge--backup { background: #d1fae5; color: #065f46; }
+
+.audit-detail-cell {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.audit-detail-kv {
+    display: inline-block;
+    margin-right: 8px;
+}

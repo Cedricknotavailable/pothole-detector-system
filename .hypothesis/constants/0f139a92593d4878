@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\utils\__init__.py
+# hypothesis_version: 6.151.9
+
+[b'/', 10.0, 100.0, 1000.0, 127, 250, 1000, 1024, 10000, ' kMGTP', '%.3f5', '%1.0f %s%s', '%1.0f / %1.0f %s%s', '%1.1f %s%s', '%1.1f / %1.1f %s%s', '%1.2f %s%s', '%1.2f / %1.2f %s%s', '%d %s', '%d / %d %s', '/', '//', '/dev/', 'CON', 'NUL', 'Sha1HexDigest', 'T', 'Windows', '\\', '\\\\', '\\\\?\\', '\\\\?\\UNC\\', '_\\1', 'hashlib._Hash', 'rb', 'utf-8']

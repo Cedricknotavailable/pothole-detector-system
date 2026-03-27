@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\engine\predictor.py
+# hypothesis_version: 6.151.9
+
+[0.25, 1000.0, 255, 300, 1000, '.avi', '.jpg', '.mp4', 'Linux', 'MJPG', 'WMV2', 'avc1', 'ch', 'crops', 'dynamic', 'end2end', 'frame (\\d+)/', 'image', 'imgsz', 'inference', 'labels', 'labels/*.txt', 'on_predict_batch_end', 'on_predict_end', 'on_predict_start', 'postprocess', 'preprocess', 'q', 'stream', 'video', 'video_flag', '{:g}x{:g} ']

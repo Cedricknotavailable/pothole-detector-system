@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\sync\report.py
+# hypothesis_version: 6.151.9
+
+[0.2, 1000, 25000, 50000, 'B', 'B/s', 'transferred: %d.txt', 'transferred: a.txt', 'transferred: b.txt']

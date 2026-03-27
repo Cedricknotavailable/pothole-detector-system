@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\data\loaders.py
+# hypothesis_version: 6.151.9
+
+[0.01, 1.0, 255.0, 100, 1080, 1920, '*', '*.*', ',', '.', '.csv', '.txt', 'L', 'RGB', '_', 'acodec', 'ext', 'file.streams', 'filename', 'formats', 'heic', 'height', 'http', 'image', 'inf', 'left', 'mp4', 'mss', 'none', 'pafy', 'pi-heif', 'pytube', 'pytubefix>=6.5.2', 'quiet', 'stream', 'top', 'url', 'vcodec', 'video', 'width', 'www.youtube.com', 'youtu.be', 'youtube.com', 'yt-dlp']

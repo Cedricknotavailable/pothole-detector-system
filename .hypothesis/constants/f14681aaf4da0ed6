@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\b2sdk\_internal\exception.py
+# hypothesis_version: 6.151.9
+
+[200, 400, 401, 403, 404, 409, 416, 429, 500, 600, '%d %s %s', '...', ': ', 'B2', 'Bad request', 'Cap exceeded.', 'Connection reset', 'Date from server', 'File deleted', 'File not hidden', 'File not present%s', 'No such bucket%s', 'Too many requests', '_', 'a bucket', 'a file', 'access_denied', 'already_hidden', 'auth_token_limit', 'bad_auth_token', 'bad_bucket_id', 'bad_json', 'bad_request', 'bucket [%s]', 'bucketId', 'bucketName', 'email_not_verified', 'event_type_invalid', 'event_type_overlap', 'event_types_empty', 'expired_auth_token', 'file [%s]', 'fileId', 'fileName', 'file_lock_conflict', 'file_not_present', 'missing_part', 'no_payment_history', 'no_such_file', 'not_found', 'part_sha1_mismatch', 'replace', 'retry-after', 'size', 'source_too_large', 'storage_cap_exceeded', 'token', 'unknown host', 'utf-8']

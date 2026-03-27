@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\utils\cpu.py
+# hypothesis_version: 6.151.9
+
+['(R)', '(TM)', '(r)', '(tm)', '-n', '/proc/cpuinfo', ':', 'ProcessorNameString', 'Unknown CPU', '\\s+', '__main__', 'darwin', 'ignore', 'linux', 'model name', 'processor', 'sysctl', 'win']

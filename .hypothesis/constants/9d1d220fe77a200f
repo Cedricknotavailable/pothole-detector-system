@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\hub\session.py
+# hypothesis_version: 6.151.9
+
+[0.0, 100, 300, 640, 900, 1024, 3600, '.pt', '.yaml', 'B', 'No JSON message.', 'Unable to read JSON.', 'api_key', 'architecture', 'batch', 'batchSize', 'best', 'cache', 'ckpt', 'config', 'data', 'dataset', 'device', 'epochs', 'heartbeat', 'hub', 'imageSize', 'imgsz', 'last', 'lineage', 'message', 'meta', 'metrics', 'name', 'parent', 'patience', 'ram', 'resume', 'train_args', 'weights_dir']

@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\torch\distributions\half_cauchy.py
+# hypothesis_version: 6.151.9
+
+['HalfCauchy', 'scale']

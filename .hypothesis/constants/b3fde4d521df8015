@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\torch\_export\__init__.py
+# hypothesis_version: 6.151.9
+
+['Unsupported device ', 'cpu', 'cuda', 'cuda:', 'mps', 'mps:', 'xpu', 'xpu:']

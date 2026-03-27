@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\utils\downloads.py
+# hypothesis_version: 6.151.9
+
+[1.0, 1.5, 100000.0, 200, 400, 1000, 1024, 8192, 1048576, "'", '*', '-', '-#', '--directory', '--retry', '-C', '-cls', '-o', '-obb', '-oiv7', '-pose', '-seg', '-seg-pf', '-spp', '-tiny', '.', '..', '.DS_Store', '.gz', '.tar', '.zip', '/d/', '/view', '3', '6', ':/', '://', 'B', 'Content-Length', 'HEAD', '__MACOSX', 'assets', 'bl', 'blst', 'content-disposition', 'curl', 'download_warning', 'filename="(.+)"', 'files', 'http:/', 'https:/', 'latest', 'lx', 'mobile_sam.pt', 'mobileclip_blt.ts', 'name', 'nsmblx', 'nsmlx', 'quota exceeded', 'rate limit exceeded', 'sS', 'sml', 'smlx', 'sx', 'tag_name', 'tar', 'tsmce', 'ultralytics/assets', 'v8.4.0', 'w', 'wb', 'weights_dir', 'xf', 'xfz', 'yolo11n-grayscale.pt']

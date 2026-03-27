@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\logfury\_logfury\trace_call.py
+# hypothesis_version: 6.151.9
+
+[' (hidden args: {})', ', ', '.', '__qualname__', 'calling %s(%s)%s', '{}={}']

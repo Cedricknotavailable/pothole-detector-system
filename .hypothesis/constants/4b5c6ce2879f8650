@@ -1,0 +1,4 @@
+# file: C:\Users\Markaaron\AppData\Roaming\Python\Python311\site-packages\ultralytics\models\yolo\classify\val.py
+# hypothesis_version: 6.151.9
+
+['%11.3g', '%11s', '%22s', 'all', 'batch_idx', 'classes', 'classify', 'cls', 'cuda', 'img', 'top1_acc', 'top5_acc']

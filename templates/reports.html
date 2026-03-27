@@ -128,16 +128,19 @@
 
                   <!-- Photo Upload -->
                   <div class="control full-width">
-                    <label class="control-label">Evidence Photo (Optional)</label>
+                    <label class="control-label">Evidence Photo</label>
                     <label class="upload-box" id="uploadBox" for="photo">
-                      <input id="photo" type="file" name="photo" accept="image/png,image/jpeg" style="display:none;" />
+                      <input id="photo" type="file" name="photo" accept="image/png,image/jpeg" required style="display:none;" />
                       <div id="uploadPlaceholder">
                         <div class="upload-icon">📷</div>
-                        <div class="upload-text">Click to upload photo</div>
-                        <div style="font-size:11px; color:#94a3b8; margin-top:4px;">JPG or PNG</div>
+                        <div class="upload-text">Click to upload photo (required)</div>
+                        <div style="font-size:11px; color:#94a3b8; margin-top:4px;">JPG or PNG, max 5MB</div>
                       </div>
                       <img id="photoPreview" class="preview-img" alt="Preview" />
                     </label>
+                    <div id="photoError" class="field-error" style="display:none; margin-top:6px;">
+                      <div class="error-message">Photo is required</div>
+                    </div>
                   </div>
 
                   <!-- Submit Action -->
@@ -370,10 +373,60 @@
               showClientError('Longitude must be between -180 and 180.');
               return;
             }
+
+            // Photo validation
+            const photoInput = document.getElementById('photo');
+            const photoError = document.getElementById('photoError');
+            
+            if (!photoInput.files || photoInput.files.length === 0) {
+              e.preventDefault();
+              if (photoError) {
+                photoError.style.display = 'block';
+                photoError.querySelector('.error-message').textContent = 'Photo is required';
+              }
+              showClientError('Photo is required. Please upload an image.');
+              return;
+            }
+            
+            // Validate file type
+            const file = photoInput.files[0];
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+            if (!validTypes.includes(file.type)) {
+              e.preventDefault();
+              if (photoError) {
+                photoError.style.display = 'block';
+                photoError.querySelector('.error-message').textContent = 'Invalid file type. Please upload JPG or PNG.';
+              }
+              showClientError('Invalid file type. Please upload JPG or PNG.');
+              return;
+            }
+            
+            // Validate file size (max 5MB)
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (file.size > maxSize) {
+              e.preventDefault();
+              if (photoError) {
+                photoError.style.display = 'block';
+                photoError.querySelector('.error-message').textContent = 'File too large. Maximum size is 5MB.';
+              }
+              showClientError('File too large. Maximum size is 5MB.');
+              return;
+            }
+          });
+        }
+
+        // Clear photo error when file is selected
+        if (photoEl) {
+          photoEl.addEventListener('change', function() {
+            const photoError = document.getElementById('photoError');
+            if (photoError) {
+              photoError.style.display = 'none';
+            }
           });
         }
       })();
     </script>
     <script src="{{ url_for('static', filename='js/mobile-nav.js') }}"></script>
+    {% include 'logout_modal.html' %}
   </body>
 </html>

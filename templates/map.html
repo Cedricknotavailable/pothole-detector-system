@@ -162,7 +162,7 @@
                 </select>
               </div>
               <div class="actions">
-                <button class="btn" id="resetFilters">Reset</button>
+                <button class="btn" id="resetFilters">Clear Filters</button>
               </div>
             </div>
 
@@ -1032,20 +1032,47 @@
       window.reactToReport = reactToReport; // Expose to global scope for popup onclick
 
       async function flagAsFalse(id) {
-          if (!confirm('Are you sure you want to flag this report as false? It will be removed and the user will be notified.')) return;
+          // Show confirmation dialog before flagging
+          if (!confirm('Flag this report as false? This action cannot be undone.')) {
+              return;
+          }
+          
           try {
-              const res = await fetch(`/reports/${id}/flag-false`, {
+              const res = await fetch(`/api/reports/${id}/flag`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' }
               });
-              const json = await res.json();
-              if (json.success) {
-                  fetchReports(); // Refresh map
+              
+              const data = await res.json();
+              
+              if (res.ok && data.success) {
+                  // Update button state to show it's been flagged
+                  const flagButtons = document.querySelectorAll(`button[onclick="flagAsFalse(${id})"]`);
+                  flagButtons.forEach(btn => {
+                      btn.disabled = true;
+                      btn.textContent = '✓ Flagged';
+                      btn.classList.add('flagged');
+                  });
+                  
+                  // Check if auto-flagged
+                  if (data.auto_flagged) {
+                      alert(`Report has been automatically marked as false (${data.flag_count}/${data.threshold} flags reached). The map will now reload.`);
+                      // Refresh map to hide the marker
+                      fetchReports();
+                  } else {
+                      alert(`Report flagged successfully (${data.flag_count}/${data.threshold} flags)`);
+                  }
               } else {
-                  alert(json.message || 'Error flagging report');
+                  // Handle error responses
+                  if (data.error === 'Already flagged') {
+                      alert('You have already flagged this report.');
+                  } else {
+                      alert(data.error || 'Failed to flag report. Please try again.');
+                  }
               }
           } catch (e) {
-              alert('Network error');
+              // Handle network errors
+              alert('Network error. Please check your connection and try again.');
           }
       }
       window.flagAsFalse = flagAsFalse;
@@ -1121,7 +1148,7 @@
                 <button onclick="reactToReport(${it.id}, 'down')" class="reaction-btn ${downClass}" title="Worsened (Thumbs Down)">
                     👎 ${it.thumbs_down || 0}
                 </button>
-                ${IS_ADMIN ? `<button onclick="flagAsFalse(${it.id})" class="reaction-btn" style="color:#dc2626;border-color:#fecaca;" title="Flag as False Report">🚩</button>` : ''}
+                <button onclick="flagAsFalse(${it.id})" class="flag-btn" title="Flag as False Report">🚩 Flag</button>
             </div>
           `;
 
@@ -1330,5 +1357,6 @@
       })();
     </script>
     <script src="{{ url_for('static', filename='js/mobile-nav.js') }}"></script>
+    {% include 'logout_modal.html' %}
   </body>
 </html>
