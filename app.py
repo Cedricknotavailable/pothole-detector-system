@@ -3645,18 +3645,18 @@ def get_analytics_heatmap():
         for d in d_list:
 
             if d.latitude and d.longitude:
-                points.append([d.latitude, d.longitude, 0.5])
+                points.append([d.latitude, d.longitude, 0.7])
         for r in r_list:
             if r.latitude and r.longitude:
-                points.append([r.latitude, r.longitude, 0.8])
+                points.append([r.latitude, r.longitude, 0.7])
     else:
         for lat, lng in d_query.with_entities(Detection.latitude, Detection.longitude).all():
             if lat and lng:
-                points.append([lat, lng, 0.5])
+                points.append([lat, lng, 0.7])
                 
         for lat, lng in r_query.with_entities(Report.latitude, Report.longitude).all():
             if lat and lng:
-                points.append([lat, lng, 0.8])
+                points.append([lat, lng, 0.7])
             
     return jsonify(points)
 
@@ -3818,6 +3818,212 @@ def get_analytics_repair_performance():
         'values': [data_map[k] for k in sorted_keys],
         'daily_breakdown': {k: daily_map.get(k, {}) for k in sorted_keys}
     })
+
+
+@app.route('/api/analytics/export-pdf', methods=['POST'])
+@require_admin_view
+def export_analytics_pdf():
+    """Export analytics dashboard as PDF"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Generate PDF using ReportLab
+        pdf_buffer = generate_analytics_pdf(data)
+        
+        # Return PDF as download
+        timestamp = time.strftime('%Y%m%d_%H%M%S')
+        filename = f'analytics_report_{timestamp}.pdf'
+        
+        return send_file(
+            pdf_buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/pdf'
+        )
+    except Exception as e:
+        app.logger.error(f"PDF export error: {e}")
+        return jsonify({'error': 'Failed to generate PDF'}), 500
+
+
+def generate_analytics_pdf(chart_data):
+    """Generate PDF report from chart data using ReportLab"""
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, PageBreak
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors
+    from io import BytesIO
+    import base64
+    from datetime import datetime
+    
+    def process_base64_image(base64_string, max_width=7*inch):
+        """Convert base64 image to ReportLab Image with size optimization"""
+        try:
+            # Remove data URL prefix if present
+            if ',' in base64_string:
+                image_data = base64_string.split(',')[1]
+            else:
+                image_data = base64_string
+                
+            image_bytes = base64.b64decode(image_data)
+            
+            # Create ReportLab Image from bytes
+            img_buffer = BytesIO(image_bytes)
+            img = Image(img_buffer)
+            
+            # Scale to fit page width
+            if img.drawWidth > max_width:
+                ratio = max_width / img.drawWidth
+                img.drawWidth = max_width
+                img.drawHeight = img.drawHeight * ratio
+            
+            return img
+        except Exception as e:
+            print(f"Image processing error: {e}")
+            return None
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=landscape(A4),
+        rightMargin=0.5*inch, 
+        leftMargin=0.5*inch,
+        topMargin=0.5*inch, 
+        bottomMargin=0.5*inch
+    )
+    
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle', 
+        parent=styles['Heading1'], 
+        fontSize=24, 
+        spaceAfter=20, 
+        alignment=1,  # Center alignment
+        textColor=colors.HexColor('#0f172a')
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Normal'],
+        fontSize=12,
+        spaceAfter=20,
+        alignment=1,
+        textColor=colors.HexColor('#64748b')
+    )
+    
+    section_style = ParagraphStyle(
+        'SectionTitle',
+        parent=styles['Heading2'],
+        fontSize=16,
+        spaceAfter=10,
+        textColor=colors.HexColor('#0f172a')
+    )
+    
+    # Title and metadata
+    story.append(Paragraph("SURVEYOR.AI Analytics Report", title_style))
+    
+    # Format timestamp
+    try:
+        timestamp = datetime.fromisoformat(chart_data['timestamp'].replace('Z', '+00:00'))
+        formatted_time = timestamp.strftime('%B %d, %Y at %I:%M %p UTC')
+    except:
+        formatted_time = chart_data.get('timestamp', 'Unknown')
+    
+    story.append(Paragraph(f"Generated on {formatted_time}", subtitle_style))
+    
+    # Filter information
+    if 'metadata' in chart_data:
+        meta = chart_data['metadata']
+        filter_info = f"Time Range: {meta.get('timeRange', 'N/A')} | "
+        filter_info += f"Admin Level: {meta.get('adminLevel', 'N/A')} | "
+        filter_info += f"Area: {meta.get('adminArea', 'N/A')}"
+        story.append(Paragraph(filter_info, subtitle_style))
+    
+    story.append(Spacer(1, 20))
+    
+    # KPI Summary Table
+    if 'kpis' in chart_data and chart_data['kpis']:
+        story.append(Paragraph("Key Performance Indicators", section_style))
+        
+        kpi_data = [
+            ['Metric', 'Value'],
+            ['Total Potholes', chart_data['kpis'].get('total_potholes', '-')],
+            ['Active Defects', chart_data['kpis'].get('active_defects', '-')],
+            ['Resolved Defects', chart_data['kpis'].get('resolved_defects', '-')],
+            ['Average Repair Time', f"{chart_data['kpis'].get('avg_repair_time', '-')} hrs"],
+            ['Total Reports', chart_data['kpis'].get('total_reports', '-')],
+            ['AI Detection Accuracy', f"{chart_data['kpis'].get('detection_accuracy', '-')}%"]
+        ]
+        
+        kpi_table = Table(kpi_data, colWidths=[3*inch, 2*inch])
+        kpi_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f1f5f9')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 11),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#e2e8f0')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        
+        story.append(kpi_table)
+        story.append(Spacer(1, 30))
+    
+    # Charts
+    if 'charts' in chart_data:
+        charts = chart_data['charts']
+        chart_titles = {
+            'trends': 'Detection Trends Over Time',
+            'status': 'Defect Status Distribution', 
+            'confidence': 'AI Confidence Distribution',
+            'repair': 'Weekly Repair Performance',
+            'heatmap': 'Geographic Heatmap'
+        }
+        
+        # Add charts (2 per page for good quality)
+        chart_count = 0
+        for chart_key, chart_image in charts.items():
+            if chart_image and chart_key in chart_titles:
+                # Add page break after every 2 charts (except first)
+                if chart_count > 0 and chart_count % 2 == 0:
+                    story.append(PageBreak())
+                
+                story.append(Paragraph(chart_titles[chart_key], section_style))
+                
+                try:
+                    img = process_base64_image(chart_image)
+                    if img:
+                        story.append(img)
+                    else:
+                        story.append(Paragraph("Chart could not be rendered", styles['Normal']))
+                except Exception as e:
+                    story.append(Paragraph(f"Chart rendering error: {str(e)}", styles['Normal']))
+                
+                story.append(Spacer(1, 20))
+                chart_count += 1
+    
+    # Footer
+    story.append(Spacer(1, 30))
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=10,
+        alignment=1,
+        textColor=colors.HexColor('#94a3b8')
+    )
+    story.append(Paragraph("Generated by SURVEYOR.AI Analytics Dashboard", footer_style))
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
 
 
 import json

@@ -51,6 +51,18 @@
               <div class="title">Analytics Dashboard</div>
               <div class="subtitle">System performance and defect statistics</div>
             </div>
+            <div class="page-actions">
+              <button id="exportPdfBtn" class="btn btn-primary" onclick="exportAnalyticsPDF()" style="display:flex; align-items:center; gap:8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14,2 14,8 20,8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                  <polyline points="10,9 9,9 8,9"/>
+                </svg>
+                Export PDF
+              </button>
+            </div>
           </div>
 
           <!-- Global Filters — drive every chart and table on the page -->
@@ -138,7 +150,7 @@
               <div class="chart-header">
                 <div class="chart-title">Geographic Heatmap</div>
               </div>
-              <div class="chart-desc">Geographic concentration of all defects. Red/hot areas have higher defect density. User reports are weighted slightly higher than AI detections.</div>
+              <div class="chart-desc">Geographic concentration of all defects. Red/hot areas have higher defect density. User reports and AI detections are weighted equally.</div>
               <div class="chart-body" id="heatmapMap" style="height:400px; z-index:1; border-radius:8px; overflow:hidden;"></div>
             </div>
 
@@ -179,6 +191,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script>
       // ─── Map setup ────────────────────────────────────────────────────────────
       const map = L.map('heatmapMap').setView([12.8797, 121.7740], 6);
@@ -520,6 +533,216 @@
         // Defer heatmap so the map container has its final dimensions
         setTimeout(() => { map.invalidateSize(); fetchHeatmap(); }, 100);
       });
+
+      // ─── PDF Export Functions ─────────────────────────────────────────────────
+      
+      // Capture all charts and data for PDF export
+      async function captureChartsForPDF() {
+        console.log('Capturing charts for PDF export...');
+        
+        const chartData = {
+          timestamp: new Date().toISOString(),
+          filters: getGlobalFilters().toString(),
+          charts: {},
+          kpis: {},
+          metadata: {}
+        };
+        
+        try {
+          // Capture Chart.js charts as high-quality images
+          if (trendChart && trendChart.canvas) {
+            chartData.charts.trends = trendChart.toBase64Image('image/png', 1.0);
+            console.log('Captured trends chart');
+          }
+          
+          if (statusChart && statusChart.canvas) {
+            chartData.charts.status = statusChart.toBase64Image('image/png', 1.0);
+            console.log('Captured status chart');
+          }
+          
+          if (confidenceChart && confidenceChart.canvas) {
+            chartData.charts.confidence = confidenceChart.toBase64Image('image/png', 1.0);
+            console.log('Captured confidence chart');
+          }
+          
+          if (repairChart && repairChart.canvas) {
+            chartData.charts.repair = repairChart.toBase64Image('image/png', 1.0);
+            console.log('Captured repair chart');
+          }
+          
+          // Capture map as image (now async)
+          chartData.charts.heatmap = await captureMapAsImage();
+          
+          // Capture KPI data
+          chartData.kpis = captureKPIData();
+          
+          // Capture filter metadata
+          chartData.metadata = captureFilterMetadata();
+          
+          console.log('Chart capture completed successfully');
+          return chartData;
+          
+        } catch (error) {
+          console.error('Error capturing charts:', error);
+          throw error;
+        }
+      }
+      
+      // Capture map as base64 image
+      async function captureMapAsImage() {
+        try {
+          const mapContainer = document.getElementById('heatmapMap');
+          
+          // Ensure map is fully loaded and rendered
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Use html2canvas to capture the actual map with heatmap
+          const canvas = await html2canvas(mapContainer, {
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#f0f0f0',
+            scale: 1,
+            logging: false,
+            onclone: function(clonedDoc) {
+              // Ensure the cloned map container maintains its dimensions
+              const clonedMapContainer = clonedDoc.getElementById('heatmapMap');
+              if (clonedMapContainer) {
+                clonedMapContainer.style.width = mapContainer.offsetWidth + 'px';
+                clonedMapContainer.style.height = mapContainer.offsetHeight + 'px';
+              }
+            }
+          });
+          
+          console.log('Captured actual map with heatmap');
+          return canvas.toDataURL('image/png');
+          
+        } catch (error) {
+          console.error('Map capture failed, using fallback:', error);
+          
+          // Fallback to placeholder if html2canvas fails
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const mapContainer = document.getElementById('heatmapMap');
+          
+          canvas.width = mapContainer.offsetWidth;
+          canvas.height = mapContainer.offsetHeight;
+          
+          ctx.fillStyle = '#f0f0f0';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          ctx.fillStyle = '#666';
+          ctx.font = '16px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText('Geographic Heatmap', canvas.width / 2, canvas.height / 2);
+          ctx.fillText('(Capture failed - see web version)', canvas.width / 2, canvas.height / 2 + 25);
+          
+          return canvas.toDataURL('image/png');
+        }
+      }
+      
+      // Capture current KPI values
+      function captureKPIData() {
+        return {
+          total_potholes: document.getElementById('kpi-potholes').textContent || '-',
+          active_defects: document.getElementById('kpi-active').textContent || '-',
+          resolved_defects: document.getElementById('kpi-resolved').textContent || '-',
+          avg_repair_time: document.getElementById('kpi-repair').textContent || '-',
+          total_reports: document.getElementById('kpi-reports').textContent || '-',
+          detection_accuracy: document.getElementById('kpi-accuracy').textContent || '-'
+        };
+      }
+      
+      // Capture current filter settings
+      function captureFilterMetadata() {
+        const preset = document.getElementById('timeRangePreset').value;
+        const level = document.getElementById('globalAdminLevel').value;
+        const area = document.getElementById('globalAdminArea').value;
+        const trendInterval = document.getElementById('trendInterval').value;
+        
+        let dateRange = '';
+        if (preset === 'custom') {
+          const start = document.getElementById('startDate').value;
+          const end = document.getElementById('endDate').value;
+          dateRange = `${start} to ${end}`;
+        } else {
+          dateRange = preset.replace('24h', '24 Hours').replace('7d', '7 Days').replace('30d', '30 Days');
+        }
+        
+        return {
+          timeRange: dateRange,
+          adminLevel: level.charAt(0).toUpperCase() + level.slice(1),
+          adminArea: area === 'all' ? 'All Areas' : area,
+          trendInterval: trendInterval.charAt(0).toUpperCase() + trendInterval.slice(1)
+        };
+      }
+      
+      // Main export function
+      async function exportAnalyticsPDF() {
+        const exportBtn = document.getElementById('exportPdfBtn');
+        const originalText = exportBtn.innerHTML;
+        
+        try {
+          // Update button state
+          exportBtn.disabled = true;
+          exportBtn.classList.add('export-loading');
+          exportBtn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
+              <path d="M21 12a9 9 0 11-6.219-8.56"/>
+            </svg>
+            Generating PDF...
+          `;
+          
+          console.log('Starting PDF export...');
+          
+          // Capture chart data (now async)
+          const chartData = await captureChartsForPDF();
+          
+          // Send to server for PDF generation
+          const response = await fetch('/api/analytics/export-pdf', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(chartData)
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          // Download the PDF
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `analytics_report_${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          
+          console.log('PDF export completed successfully');
+          
+        } catch (error) {
+          console.error('PDF export failed:', error);
+          alert('Failed to export PDF. Please try again.');
+        } finally {
+          // Restore button state
+          exportBtn.disabled = false;
+          exportBtn.classList.remove('export-loading');
+          exportBtn.innerHTML = originalText;
+        }
+      }
+      
+      // Add CSS for spinning animation
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
 
       // ─── Notifications ────────────────────────────────────────────────────────
       (function () {
