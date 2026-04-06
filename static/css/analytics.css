@@ -1,3 +1,28 @@
+/* Global filter bar */
+.global-filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+}
+.global-filters-row .control.actions { margin-left: auto; }
+
+/* Time range controls - ensure proper spacing */
+.global-filters-row .control {
+  min-width: 120px;
+}
+
+@media (max-width: 768px) {
+  .global-filters-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .global-filters-row .control.actions {
+    margin-left: 0;
+    margin-top: 10px;
+  }
+}
+
 .analytics-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 20px; padding-bottom: 40px; margin-top: 20px; }
 .kpi-card { grid-column: span 2; background: #fff; padding: 20px; border-radius: 10px; border: 1px solid #cbd5e1; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: center; }
 .kpi-card-link { text-decoration: none; cursor: pointer; transition: all 0.2s ease; }

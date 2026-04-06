@@ -40,6 +40,7 @@
           <a href="/settings">Settings</a>
           <a href="/admin/backups">Backup Management</a>
           <a class="active" href="/analytics">Analytics</a>
+          <a href="/activity-logs">Activity Logs</a>
           <a href="/logout">Log Out</a>
         </nav>
       </aside>
@@ -52,12 +53,12 @@
             </div>
           </div>
 
-          <!-- KPI filters + cards -->
-          <div class="card controls" style="padding: 14px 16px; margin-top: 16px;">
-            <div class="control-row" style="grid-template-columns: auto auto auto auto auto 1fr auto; align-items: flex-end; gap: 10px;">
+          <!-- Global Filters — drive every chart and table on the page -->
+          <div class="card controls global-filters" style="padding: 14px 16px; margin-top: 16px;">
+            <div class="global-filters-row">
               <div class="control">
                 <label class="control-label">Admin Level</label>
-                <select id="kpiAdminLevel" class="control-input" style="width:140px;" onchange="loadChartAreas('kpiAdminArea', this.value)">
+                <select id="globalAdminLevel" class="control-input" style="width:140px;" onchange="onGlobalLevelChange()">
                   <option value="region">Region</option>
                   <option value="province" selected>Province</option>
                   <option value="municipality">Municipality</option>
@@ -65,23 +66,34 @@
               </div>
               <div class="control">
                 <label class="control-label">Specific Area</label>
-                <select id="kpiAdminArea" class="control-input" style="width:180px;"><option value="all">All Areas</option></select>
+                <select id="globalAdminArea" class="control-input" style="width:180px;"><option value="all">All Areas</option></select>
               </div>
               <div class="control">
+                <label class="control-label">Time Range</label>
+                <select id="timeRangePreset" class="control-input" style="width:120px;" onchange="onTimeRangePresetChange()">
+                  <option value="24h">Last 24 Hours</option>
+                  <option value="7d">Last 7 Days</option>
+                  <option value="30d" selected>Last 30 Days</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+              </div>
+              <div class="control" id="customDateRange" style="display:none;">
                 <label class="control-label">Start Date</label>
                 <input type="date" id="startDate" class="control-input" />
               </div>
-              <div class="control">
+              <div class="control" id="customDateRangeEnd" style="display:none;">
                 <label class="control-label">End Date</label>
                 <input type="date" id="endDate" class="control-input" />
               </div>
-              <div class="control actions" style="display:flex; gap:8px;">
-                <button id="refreshKpiBtn" class="btn secondary">Refresh KPIs</button>
+              <div class="control actions" style="display:flex; gap:8px; align-items:flex-end;">
+                <button id="applyFiltersBtn" class="btn">Apply Filters</button>
+                <button id="clearFiltersBtn" class="btn secondary">Clear</button>
               </div>
             </div>
           </div>
 
           <div class="analytics-grid">
+            <!-- KPI Cards -->
             <a href="/defects?type=pothole" class="kpi-card kpi-card-link">
               <div class="kpi-title">Total Potholes</div>
               <div class="kpi-value" id="kpi-potholes">-</div>
@@ -107,34 +119,17 @@
               <div><span class="kpi-value" id="kpi-accuracy">-</span><span class="kpi-unit">%</span></div>
             </div>
 
-            <!-- Detection Trends -->
+            <!-- Detection Trends — interval selector is a display option, not a data filter -->
             <div class="chart-card span-12">
               <div class="chart-header">
                 <div class="chart-title">Detection Trends</div>
-                <select id="trendInterval" class="control-input" style="width:auto; height:40px;">
+                <select id="trendInterval" class="control-input" style="width:auto; height:40px;" onchange="fetchTrends()">
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
                 </select>
               </div>
               <div class="chart-desc">Number of AI detections over time. Switch between daily, weekly, or monthly intervals to spot patterns in detection activity.</div>
-              <div class="chart-filters">
-                <div class="control">
-                  <label class="control-label">Admin Level</label>
-                  <select id="trendAdminLevel" class="control-input" style="width:140px;" onchange="loadChartAreas('trendAdminArea', this.value)">
-                    <option value="region">Region</option>
-                    <option value="province" selected>Province</option>
-                    <option value="municipality">Municipality</option>
-                  </select>
-                </div>
-                <div class="control">
-                  <label class="control-label">Specific Area</label>
-                  <select id="trendAdminArea" class="control-input" style="width:180px;"><option value="all">All Areas</option></select>
-                </div>
-                <div class="control actions" style="display:flex; gap:8px;">
-                  <button class="btn secondary" onclick="fetchTrends()">Apply</button>
-                </div>
-              </div>
               <div class="chart-body"><canvas id="trendChart"></canvas></div>
             </div>
 
@@ -153,23 +148,6 @@
                 <div class="chart-title">Defect Status Distribution</div>
               </div>
               <div class="chart-desc">Breakdown of all defects into AI-detected open, user-reported open, and fixed. Shows the overall resolution progress.</div>
-              <div class="chart-filters">
-                <div class="control">
-                  <label class="control-label">Admin Level</label>
-                  <select id="statusAdminLevel" class="control-input" style="width:130px;" onchange="loadChartAreas('statusAdminArea', this.value)">
-                    <option value="region">Region</option>
-                    <option value="province" selected>Province</option>
-                    <option value="municipality">Municipality</option>
-                  </select>
-                </div>
-                <div class="control">
-                  <label class="control-label">Specific Area</label>
-                  <select id="statusAdminArea" class="control-input" style="width:160px;"><option value="all">All Areas</option></select>
-                </div>
-                <div class="control actions" style="display:flex; gap:8px;">
-                  <button class="btn secondary" onclick="fetchStatus()">Apply</button>
-                </div>
-              </div>
               <div class="chart-body"><canvas id="statusChart"></canvas></div>
             </div>
 
@@ -178,7 +156,7 @@
               <div class="chart-header">
                 <div class="chart-title">AI Confidence Distribution</div>
               </div>
-              <div class="chart-desc">How confident the AI was across all detections, grouped in 20% bands. More detections in the 80 to 100% range means higher model reliability.</div>
+              <div class="chart-desc">How confident the AI was across all detections, grouped in 20% bands. More detections in the 80–100% range means higher model reliability.</div>
               <div class="chart-body"><canvas id="confidenceChart"></canvas></div>
             </div>
 
@@ -188,562 +166,419 @@
                 <div class="chart-title">Weekly Repair Performance</div>
               </div>
               <div class="chart-desc">Number of defects marked as fixed per week. Helps track whether repair activity is increasing, slowing, or concentrated in specific periods.</div>
-              <div class="chart-filters">
-                <div class="control">
-                  <label class="control-label">Admin Level</label>
-                  <select id="repairAdminLevel" class="control-input" style="width:140px;" onchange="loadChartAreas('repairAdminArea', this.value)">
-                    <option value="region">Region</option>
-                    <option value="province" selected>Province</option>
-                    <option value="municipality">Municipality</option>
-                  </select>
-                </div>
-                <div class="control">
-                  <label class="control-label">Specific Area</label>
-                  <select id="repairAdminArea" class="control-input" style="width:180px;"><option value="all">All Areas</option></select>
-                </div>
-                <div class="control actions" style="display:flex; gap:8px;">
-                  <button class="btn secondary" onclick="fetchRepair()">Apply</button>
-                </div>
-              </div>
               <div class="chart-body"><canvas id="repairChart"></canvas></div>
             </div>
-            <!-- System Activity Log -->
-            <div class="chart-card span-12">
-              <div class="chart-header">
-                <div class="chart-title">System Activity Log</div>
-              </div>
-              <div class="chart-desc">Chronological record of significant actions performed by administrators and users.</div>
-              
-              <!-- Audit Log Filters -->
-              <div class="chart-filters audit-filters">
-                <div class="control">
-                  <label class="control-label">Action Type</label>
-                  <select id="auditActionFilter" class="control-input" style="width:160px;">
-                    <option value="">All Actions</option>
-                  </select>
-                </div>
-                <div class="control">
-                  <label class="control-label">Actor</label>
-                  <input type="text" id="auditActorFilter" class="control-input" placeholder="Username..." style="width:140px;" />
-                </div>
-                <div class="control">
-                  <label class="control-label">Start Date</label>
-                  <input type="date" id="auditStartDate" class="control-input" style="width:140px;" />
-                </div>
-                <div class="control">
-                  <label class="control-label">End Date</label>
-                  <input type="date" id="auditEndDate" class="control-input" style="width:140px;" />
-                </div>
-                <div class="control actions" style="display:flex; gap:8px;">
-                  <button class="btn secondary" onclick="loadAuditLog(1)">Apply</button>
-                  <button class="btn secondary" onclick="exportAuditLog()">Export</button>
-                </div>
-              </div>
-              
-              <!-- Audit Log Table -->
-              <div class="chart-body" style="padding:0;">
-                <div class="table-wrap">
-                  <table class="table" id="auditTable">
-                    <thead>
-                      <tr>
-                        <th>Timestamp</th>
-                        <th>Actor</th>
-                        <th>Action</th>
-                        <th>Resource</th>
-                        <th>Detail</th>
-                        <th>IP Address</th>
-                      </tr>
-                    </thead>
-                    <tbody id="auditTableBody">
-                      <tr><td colspan="6" class="empty">Loading...</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div class="audit-pagination" id="auditPagination"></div>
-              </div>
-            </div>
 
-          </div>
-        </div>
+
+
+          </div><!-- /.analytics-grid -->
+        </div><!-- /.page -->
       </main>
-    </div>
+    </div><!-- /.layout -->
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
     <script>
-        const map = L.map('heatmapMap').setView([12.8797, 121.7740], 6);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
-        let heatLayer = null;
-        let trendChart = null, statusChart = null, confidenceChart = null, repairChart = null;
+      // ─── Map setup ────────────────────────────────────────────────────────────
+      const map = L.map('heatmapMap').setView([12.8797, 121.7740], 6);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+      let heatLayer = null;
 
-        function getKpiFilters() {
-            const p = new URLSearchParams();
-            const start = document.getElementById('startDate').value;
-            const end = document.getElementById('endDate').value;
-            if (start) p.append('start_date', start);
-            if (end) p.append('end_date', end);
-            p.append('admin_level', document.getElementById('kpiAdminLevel').value);
-            const area = document.getElementById('kpiAdminArea').value;
-            if (area && area !== 'all') p.append('admin_area', area);
-            return p;
+      // ─── Chart instances ──────────────────────────────────────────────────────
+      let trendChart = null, statusChart = null, confidenceChart = null, repairChart = null;
+
+      // ─── Global filter accessor ───────────────────────────────────────────────
+      // Single source of truth — every fetch function calls this.
+      function getGlobalFilters() {
+        const p = new URLSearchParams();
+        const preset = document.getElementById('timeRangePreset').value;
+        const level = document.getElementById('globalAdminLevel').value;
+        const area  = document.getElementById('globalAdminArea').value;
+        
+        // Handle time range based on preset or custom dates
+        if (preset === 'custom') {
+          const start = document.getElementById('startDate').value;
+          const end   = document.getElementById('endDate').value;
+          if (start) p.set('start_date', start);
+          if (end)   p.set('end_date', end);
+        } else {
+          // Calculate preset date ranges
+          const now = new Date();
+          const endDate = now.toISOString().split('T')[0]; // Today
+          let startDate;
+          
+          switch (preset) {
+            case '24h':
+              const yesterday = new Date(now);
+              yesterday.setDate(yesterday.getDate() - 1);
+              startDate = yesterday.toISOString().split('T')[0];
+              break;
+            case '7d':
+              const weekAgo = new Date(now);
+              weekAgo.setDate(weekAgo.getDate() - 7);
+              startDate = weekAgo.toISOString().split('T')[0];
+              break;
+            case '30d':
+            default:
+              const monthAgo = new Date(now);
+              monthAgo.setDate(monthAgo.getDate() - 30);
+              startDate = monthAgo.toISOString().split('T')[0];
+              break;
+          }
+          
+          p.set('start_date', startDate);
+          p.set('end_date', endDate);
         }
+        
+        p.set('admin_level', level);
+        if (area && area !== 'all') p.set('admin_area', area);
+        return p;
+      }
 
-        function getChartFilters(levelId, areaId) {
-            const p = new URLSearchParams();
-            const start = document.getElementById('startDate').value;
-            const end = document.getElementById('endDate').value;
-            if (start) p.append('start_date', start);
-            if (end) p.append('end_date', end);
-            p.append('admin_level', document.getElementById(levelId).value);
-            const area = document.getElementById(areaId).value;
-            if (area && area !== 'all') p.append('admin_area', area);
-            return p;
+      // ─── Time Range Preset Handler ────────────────────────────────────────────
+      function onTimeRangePresetChange() {
+        const preset = document.getElementById('timeRangePreset').value;
+        const customDateRange = document.getElementById('customDateRange');
+        const customDateRangeEnd = document.getElementById('customDateRangeEnd');
+        
+        if (preset === 'custom') {
+          customDateRange.style.display = 'block';
+          customDateRangeEnd.style.display = 'block';
+        } else {
+          customDateRange.style.display = 'none';
+          customDateRangeEnd.style.display = 'none';
+          // Clear custom date inputs when switching to preset
+          document.getElementById('startDate').value = '';
+          document.getElementById('endDate').value = '';
         }
-
-        async function loadChartAreas(areaSelectId, level) {
-            try {
-                const files = { region: 'regions.json', province: 'provinces.json', municipality: 'municipalities.json' };
-                const res = await fetch(`/static/data/${files[level] || 'provinces.json'}`);
-                const data = await res.json();
-                const sel = document.getElementById(areaSelectId);
-                sel.innerHTML = '<option value="all">All Areas</option>';
-                const features = (data.features || []).slice().sort((a, b) => {
-                    const name = f => f.properties.name || f.properties.REGION || f.properties.NAME_1 || f.properties.NAME_2 || '';
-                    return name(a).localeCompare(name(b));
-                });
-                features.forEach(f => {
-                    const name = f.properties.name || f.properties.REGION || f.properties.NAME_1 || f.properties.NAME_2 || '';
-                    if (name) { const o = document.createElement('option'); o.value = name; o.innerText = name; sel.appendChild(o); }
-                });
-            } catch(e) { console.error('loadChartAreas', e); }
+        
+        // Auto-refresh when preset changes (but not when switching to custom)
+        if (preset !== 'custom') {
+          refreshAll();
         }
+      }
 
-        function formatWeekLabel(key) {
-            const m = key.match(/^(\d{4})-W(\d+)$/);
-            if (!m) return key;
-            const year = parseInt(m[1]);
-            const week = parseInt(m[2]);
-            const d = new Date(year, 0, 1 + (week - 1) * 7);
-            const month = d.toLocaleString('default', { month: 'short' });
-            const shortYear = String(year).slice(-2);
-            return `${month} W${week} '${shortYear}`;
-        }
-
-        async function fetchOverview() {
-            try {
-                const d = await (await fetch(`/api/analytics/overview?${getKpiFilters()}`)).json();
-                document.getElementById('kpi-potholes').innerText = d.total_potholes;
-                document.getElementById('kpi-active').innerText = d.active_defects;
-                document.getElementById('kpi-resolved').innerText = d.resolved_defects;
-                document.getElementById('kpi-repair').innerText = d.avg_repair_time;
-                document.getElementById('kpi-reports').innerText = d.total_reports;
-                document.getElementById('kpi-accuracy').innerText = d.detection_accuracy;
-            } catch(e) { console.error(e); }
-        }
-
-        async function fetchTrends() {
-            try {
-                const p = getChartFilters('trendAdminLevel', 'trendAdminArea');
-                p.append('interval', document.getElementById('trendInterval').value);
-                const d = await (await fetch(`/api/analytics/trends?${p}`)).json();
-                const ctx = document.getElementById('trendChart').getContext('2d');
-                if (trendChart) trendChart.destroy();
-                trendChart = new Chart(ctx, {
-                    type: 'line',
-                    data: { labels: d.labels, datasets: [{ label: 'Detections', data: d.values, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, tension: 0.3 }] },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-                });
-            } catch(e) { console.error(e); }
-        }
-
-        async function fetchHeatmap() {
-            try {
-                const p = new URLSearchParams();
-                const start = document.getElementById('startDate').value;
-                const end = document.getElementById('endDate').value;
-                if (start) p.append('start_date', start);
-                if (end) p.append('end_date', end);
-                const points = await (await fetch(`/api/analytics/heatmap?${p}`)).json();
-                if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
-                // Always invalidate size so Leaflet recalculates tile coverage
-                map.invalidateSize();
-                if (Array.isArray(points) && points.length > 0) {
-                    heatLayer = L.heatLayer(points, { radius: 25, blur: 15, maxZoom: 17 }).addTo(map);
-                    const bounds = L.latLngBounds(points.map(pt => [pt[0], pt[1]]));
-                    if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40] });
-                }
-            } catch(e) { console.error('fetchHeatmap error:', e); }
-        }
-
-        async function fetchStatus() {
-            try {
-                const d = await (await fetch(`/api/analytics/status-distribution?${getChartFilters('statusAdminLevel', 'statusAdminArea')}`)).json();
-                const ctx = document.getElementById('statusChart').getContext('2d');
-                if (statusChart) statusChart.destroy();
-                
-                // Calculate total and percentages
-                const total = d.values.reduce((sum, val) => sum + val, 0);
-                const formattedLabels = d.labels.map((label, idx) => {
-                    const count = d.values[idx];
-                    const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
-                    return `${label}: ${percentage}% (${count})`;
-                });
-                
-                statusChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: { 
-                        labels: formattedLabels, 
-                        datasets: [{ 
-                            data: d.values, 
-                            backgroundColor: ['#ef4444', '#f59e0b', '#22c55e'] 
-                        }] 
-                    },
-                    options: { 
-                        responsive: true, 
-                        maintainAspectRatio: false, 
-                        plugins: { 
-                            legend: { 
-                                position: 'right',
-                                labels: {
-                                    font: { size: 12 },
-                                    padding: 10
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const label = d.labels[context.dataIndex];
-                                        const count = context.parsed;
-                                        const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
-                                        return `${label}: ${percentage}% (${count})`;
-                                    }
-                                }
-                            }
-                        } 
-                    }
-                });
-            } catch(e) { console.error(e); }
-        }
-
-        async function fetchConfidence() {
-            try {
-                const p = new URLSearchParams();
-                const start = document.getElementById('startDate').value;
-                const end = document.getElementById('endDate').value;
-                if (start) p.append('start_date', start);
-                if (end) p.append('end_date', end);
-                const d = await (await fetch(`/api/analytics/ai-confidence?${p}`)).json();
-                const ctx = document.getElementById('confidenceChart').getContext('2d');
-                if (confidenceChart) confidenceChart.destroy();
-                confidenceChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: { labels: d.labels, datasets: [{ label: 'Count', data: d.values, backgroundColor: '#6366f1' }] },
-                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { title: { display: true, text: 'Average Confidence: ' + d.average + '%' } } }
-                });
-            } catch(e) { console.error(e); }
-        }
-
-        // Stores raw week labels and daily breakdown from the last API response
-        let repairRawLabels = [];
-        let repairDailyBreakdown = {};
-
-        async function fetchRepair() {
-            try {
-                const resp = await (await fetch(`/api/analytics/repair-performance?${getChartFilters('repairAdminLevel', 'repairAdminArea')}`)).json();
-                const ctx = document.getElementById('repairChart').getContext('2d');
-                if (repairChart) repairChart.destroy();
-
-                // Store at module scope so tooltip callbacks can access them
-                repairRawLabels = resp.labels || [];
-                repairDailyBreakdown = resp.daily_breakdown || {};
-
-                const friendlyLabels = repairRawLabels.map(formatWeekLabel);
-
-                repairChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: friendlyLabels,
-                        datasets: [{
-                            label: 'Repairs Completed',
-                            data: resp.values,
-                            backgroundColor: '#10b981',
-                            borderRadius: 4,
-                            borderSkipped: false
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    title(items) {
-                                        return items[0].label;
-                                    },
-                                    beforeBody(items) {
-                                        const idx = items[0].dataIndex;
-                                        const weekKey = repairRawLabels[idx];
-                                        const days = repairDailyBreakdown[weekKey];
-                                        if (!days || !Object.keys(days).length) return [];
-                                        return Object.entries(days)
-                                            .sort(([a], [b]) => a.localeCompare(b))
-                                            .map(([date, count]) => {
-                                                const dayDt = new Date(date + 'T00:00:00');
-                                                const dayName = dayDt.toLocaleString('default', { weekday: 'short' });
-                                                const dayLabel = dayDt.toLocaleString('default', { month: 'short', day: 'numeric' });
-                                                return `${dayName} ${dayLabel}: ${count}`;
-                                            });
-                                    },
-                                    label(item) {
-                                        return `Total: ${item.raw}`;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            } catch(e) { console.error(e); }
-        }
-
-        document.getElementById('refreshKpiBtn').addEventListener('click', fetchOverview);
-        document.getElementById('kpiAdminLevel').addEventListener('change', function() {
-            loadChartAreas('kpiAdminArea', this.value).then(fetchOverview);
-        });
-        document.getElementById('kpiAdminArea').addEventListener('change', fetchOverview);
-        document.getElementById('trendInterval').addEventListener('change', fetchTrends);
-
-        // --- Audit Log ---
-        const ACTION_CATEGORIES = {
-            USER_LOGIN: 'auth', USER_LOGOUT: 'auth', USER_REGISTERED: 'auth', PASSWORD_RESET: 'auth',
-            USER_STATUS_CHANGED: 'user-mgmt', USER_ROLE_CHANGED: 'user-mgmt',
-            USER_DELETED: 'user-mgmt', USER_ARCHIVED: 'user-mgmt',
-            REPORT_SUBMITTED: 'reports', REPORT_FLAGGED_FALSE: 'reports',
-            DEFECTS_MARKED_FIXED: 'defects', DETECTION_REVIEWED: 'defects',
-            BACKUP_EXPORTED: 'backup', BACKUP_RESTORED: 'backup',
-        };
-        const CATEGORY_BADGE = {
-            'auth': 'audit-badge--auth',
-            'user-mgmt': 'audit-badge--user',
-            'reports': 'audit-badge--report',
-            'defects': 'audit-badge--defect',
-            'settings': 'audit-badge--settings',
-        };
-
-        let _auditCurrentPage = 1;
-
-        async function loadAuditLog(page) {
-            page = page || _auditCurrentPage;
-            _auditCurrentPage = page;
-            const action = document.getElementById('auditActionFilter').value;
-            const actor = document.getElementById('auditActorFilter').value;
-            const start = document.getElementById('auditStartDate').value;
-            const end = document.getElementById('auditEndDate').value;
-
-            const params = new URLSearchParams({ page });
-            if (action) params.set('action', action);
-            if (actor) params.set('actor', actor);
-            if (start) params.set('start_date', start);
-            if (end) params.set('end_date', end);
-
-            const tbody = document.getElementById('auditTableBody');
-            tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading...</td></tr>';
-
-            try {
-                const res = await fetch('/api/audit-log?' + params.toString());
-
-                if (!res.ok) {
-                    const errorText = await res.text();
-                    console.error('API error response:', errorText);
-                    tbody.innerHTML = `<tr><td colspan="6" class="empty">Error: ${res.status} ${res.statusText}</td></tr>`;
-                    return;
-                }
-
-                const data = await res.json();
-
-                if (data.error) {
-                    tbody.innerHTML = `<tr><td colspan="6" class="empty">Error: ${data.error}</td></tr>`;
-                    return;
-                }
-
-                // Always refresh action type dropdown from latest response
-                if (data.action_types && data.action_types.length > 0) {
-                    const sel = document.getElementById('auditActionFilter');
-                    const current = sel.value;
-                    sel.innerHTML = '<option value="">All Actions</option>';
-                    data.action_types.forEach(a => {
-                        const opt = document.createElement('option');
-                        opt.value = a;
-                        opt.textContent = a.replace(/_/g, ' ');
-                        sel.appendChild(opt);
-                    });
-                    sel.value = current; // restore selection
-                }
-
-                if (!data.items || data.items.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="empty">No audit log entries found.</td></tr>';
-                } else {
-                    tbody.innerHTML = data.items.map(e => {
-                        const cat = ACTION_CATEGORIES[e.action] || 'settings';
-                        const badgeCls = CATEGORY_BADGE[cat] || '';
-                        const detail = e.detail && Object.keys(e.detail).length
-                            ? Object.entries(e.detail).map(([k, v]) => `<span class="audit-detail-kv"><b>${k}:</b> ${v}</span>`).join(' ')
-                            : '—';
-                        const resource = e.resource_type !== '—'
-                            ? `${e.resource_type}${e.resource_id ? ' #' + e.resource_id : ''}`
-                            : '—';
-                        return `<tr>
-                            <td data-label="Timestamp:" class="mono" style="font-size:12px;">${e.timestamp_iso}</td>
-                            <td data-label="Actor:" style="font-weight:700;">${e.actor_username}</td>
-                            <td data-label="Action:"><span class="audit-badge ${badgeCls}">${e.action.replace(/_/g, ' ')}</span></td>
-                            <td data-label="Resource:" style="font-size:13px;">${resource}</td>
-                            <td data-label="Detail:" class="audit-detail-cell">${detail}</td>
-                            <td data-label="IP Address:" class="mono" style="font-size:12px;">${e.ip_address}</td>
-                        </tr>`;
-                    }).join('');
-                }
-
-                renderAuditPagination(data.page, data.pages, data.total);
-            } catch (err) {
-                tbody.innerHTML = '<tr><td colspan="6" class="empty">Failed to load audit log. Check console for details.</td></tr>';
-                console.error('Audit log error:', err);
+      // ─── Area dropdown loader ─────────────────────────────────────────────────
+      async function loadAreas(selectId, level) {
+        const files = { region: 'regions.json', province: 'provinces.json', municipality: 'municipalities.json' };
+        try {
+          const res  = await fetch(`/static/data/${files[level] || 'provinces.json'}`);
+          const data = await res.json();
+          const sel  = document.getElementById(selectId);
+          sel.innerHTML = '<option value="all">All Areas</option>';
+          
+          // Extract and deduplicate names using correct property for each level
+          const nameSet = new Set();
+          const uniqueFeatures = [];
+          
+          (data.features || []).forEach(f => {
+            let name = '';
+            
+            // Use the correct property based on administrative level
+            if (level === 'municipality') {
+              name = f.properties.NAME_2 || '';
+            } else if (level === 'province') {
+              name = f.properties.NAME_1 || '';
+            } else if (level === 'region') {
+              name = f.properties.REGION || f.properties.name || '';
+            } else {
+              // Fallback for unknown levels
+              name = f.properties.name || f.properties.REGION || f.properties.NAME_1 || f.properties.NAME_2 || '';
             }
-        }
-
-        function renderAuditPagination(page, pages, total) {
-            const el = document.getElementById('auditPagination');
-            if (pages <= 1) { el.innerHTML = ''; return; }
-            let html = `<span class="range">${total} entries</span><div class="pager">`;
-            if (page > 1) html += `<a class="page-btn" href="#" onclick="loadAuditLog(${page - 1});return false;">&#8592; Prev</a>`;
-            const start = Math.max(1, page - 2), end = Math.min(pages, page + 2);
-            for (let i = start; i <= end; i++) {
-                html += `<a class="page-num${i === page ? ' active' : ''}" href="#" onclick="loadAuditLog(${i});return false;">${i}</a>`;
+            
+            if (name && !nameSet.has(name)) {
+              nameSet.add(name);
+              uniqueFeatures.push({ name, feature: f });
             }
-            if (page < pages) html += `<a class="page-btn" href="#" onclick="loadAuditLog(${page + 1});return false;">Next &#8594;</a>`;
-            html += '</div>';
-            el.innerHTML = html;
-        }
+          });
+          
+          // Sort unique features by name
+          uniqueFeatures
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .forEach(({ name }) => {
+              const o = document.createElement('option');
+              o.value = name; o.textContent = name;
+              sel.appendChild(o);
+            });
+        } catch (e) { console.error('loadAreas', e); }
+      }
 
-        function exportAuditLog() {
-            const action = document.getElementById('auditActionFilter').value;
-            const actor = document.getElementById('auditActorFilter').value;
-            const start = document.getElementById('auditStartDate').value;
-            const end = document.getElementById('auditEndDate').value;
-            const params = new URLSearchParams({ page: 1, per_page: 10000 });
-            if (action) params.set('action', action);
-            if (actor) params.set('actor', actor);
-            if (start) params.set('start_date', start);
-            if (end) params.set('end_date', end);
+      function onGlobalLevelChange() {
+        loadAreas('globalAdminArea', document.getElementById('globalAdminLevel').value)
+          .then(refreshAll);
+      }
 
-            fetch('/api/audit-log?' + params.toString())
-                .then(r => r.json())
-                .then(data => {
-                    const rows = [['Timestamp', 'Actor', 'Action', 'Resource Type', 'Resource ID', 'Detail', 'IP Address']];
-                    (data.items || []).forEach(e => {
-                        rows.push([
-                            e.timestamp_iso, e.actor_username, e.action,
-                            e.resource_type, e.resource_id || '', JSON.stringify(e.detail), e.ip_address
-                        ]);
-                    });
-                    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-                    const blob = new Blob([csv], { type: 'text/csv' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url; a.download = 'audit_log.csv'; a.click();
-                    URL.revokeObjectURL(url);
-                });
-        }
+      // ─── Refresh all charts + KPIs ────────────────────────────────────────────
+      function refreshAll() {
+        fetchOverview();
+        fetchTrends();
+        fetchHeatmap();
+        fetchStatus();
+        fetchConfidence();
+        fetchRepair();
+      }
 
-        Promise.all([
-            loadChartAreas('kpiAdminArea', 'province'),
-            loadChartAreas('trendAdminArea', 'province'),
-            loadChartAreas('statusAdminArea', 'province'),
-            loadChartAreas('repairAdminArea', 'province'),
-        ]).then(() => {
-            fetchOverview(); fetchTrends(); fetchStatus(); fetchConfidence(); fetchRepair();
-            // Defer heatmap fetch slightly so the map container has its final dimensions
-            setTimeout(() => { map.invalidateSize(); fetchHeatmap(); }, 100);
-            // Load audit log after charts
-            setTimeout(() => loadAuditLog(1), 500);
-        });
+      // ─── Utility ──────────────────────────────────────────────────────────────
+      function formatWeekLabel(key) {
+        const m = key.match(/^(\d{4})-W(\d+)$/);
+        if (!m) return key;
+        const year = parseInt(m[1]), week = parseInt(m[2]);
+        const d = new Date(year, 0, 1 + (week - 1) * 7);
+        return `${d.toLocaleString('default', { month: 'short' })} W${week} '${String(year).slice(-2)}`;
+      }
 
-        // Notifications Logic
-        (function() {
-          const notifBtn = document.getElementById('notifBtn');
-          const notifBadge = document.getElementById('notifBadge');
-          const notifPopup = document.getElementById('notifPopup');
-          const notifList = document.getElementById('notifList');
-          const markAllReadBtn = document.getElementById('markAllReadBtn');
-          let notifOpen = false;
+      // ─── KPI Overview ─────────────────────────────────────────────────────────
+      async function fetchOverview() {
+        try {
+          const d = await (await fetch(`/api/analytics/overview?${getGlobalFilters()}`)).json();
+          document.getElementById('kpi-potholes').textContent = d.total_potholes;
+          document.getElementById('kpi-active').textContent   = d.active_defects;
+          document.getElementById('kpi-resolved').textContent = d.resolved_defects;
+          document.getElementById('kpi-repair').textContent   = d.avg_repair_time;
+          document.getElementById('kpi-reports').textContent  = d.total_reports;
+          document.getElementById('kpi-accuracy').textContent = d.detection_accuracy;
+        } catch (e) { console.error('fetchOverview', e); }
+      }
 
-          async function fetchNotifications() {
-            try {
-              const res = await fetch('/notifications/unread');
-              const data = await res.json();
-              const items = data.items || [];
-              
-              if (data.count > 0) {
-                notifBadge.style.display = 'block';
-                markAllReadBtn.style.display = 'block';
-              } else {
-                notifBadge.style.display = 'none';
-                markAllReadBtn.style.display = 'none';
+      // ─── Detection Trends ─────────────────────────────────────────────────────
+      async function fetchTrends() {
+        try {
+          const p = getGlobalFilters();
+          p.set('interval', document.getElementById('trendInterval').value);
+          const d   = await (await fetch(`/api/analytics/trends?${p}`)).json();
+          const ctx = document.getElementById('trendChart').getContext('2d');
+          if (trendChart) trendChart.destroy();
+          trendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: d.labels,
+              datasets: [{
+                label: 'Detections',
+                data: d.values,
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59,130,246,0.1)',
+                fill: true,
+                tension: 0.3
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: { y: { beginAtZero: true } }
+            }
+          });
+        } catch (e) { console.error('fetchTrends', e); }
+      }
+
+      // ─── Geographic Heatmap ───────────────────────────────────────────────────
+      async function fetchHeatmap() {
+        try {
+          const points = await (await fetch(`/api/analytics/heatmap?${getGlobalFilters()}`)).json();
+          if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+          map.invalidateSize();
+          if (Array.isArray(points) && points.length > 0) {
+            heatLayer = L.heatLayer(points, { radius: 25, blur: 15, maxZoom: 17 }).addTo(map);
+            const bounds = L.latLngBounds(points.map(pt => [pt[0], pt[1]]));
+            if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40] });
+          }
+        } catch (e) { console.error('fetchHeatmap', e); }
+      }
+
+      // ─── Defect Status Distribution ───────────────────────────────────────────
+      async function fetchStatus() {
+        try {
+          const d     = await (await fetch(`/api/analytics/status-distribution?${getGlobalFilters()}`)).json();
+          const ctx   = document.getElementById('statusChart').getContext('2d');
+          const total = d.values.reduce((s, v) => s + v, 0);
+          if (statusChart) statusChart.destroy();
+          statusChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+              labels: d.labels.map((lbl, i) => {
+                const pct = total > 0 ? ((d.values[i] / total) * 100).toFixed(1) : 0;
+                return `${lbl}: ${pct}% (${d.values[i]})`;
+              }),
+              datasets: [{ data: d.values, backgroundColor: ['#ef4444', '#f59e0b', '#22c55e'] }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: 'right', labels: { font: { size: 12 }, padding: 10 } },
+                tooltip: {
+                  callbacks: {
+                    label(ctx) {
+                      const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
+                      return `${d.labels[ctx.dataIndex]}: ${pct}% (${ctx.parsed})`;
+                    }
+                  }
+                }
               }
-              
-              if (items.length === 0) {
-                notifList.innerHTML = '<div style="padding:20px; text-align:center; color:#64748b; font-size:13px;">No new notifications</div>';
-              } else {
-                notifList.innerHTML = items.map(n => `
-                  <div style="padding:12px 16px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.2s;" 
+            }
+          });
+        } catch (e) { console.error('fetchStatus', e); }
+      }
+
+      // ─── AI Confidence Distribution ───────────────────────────────────────────
+      async function fetchConfidence() {
+        try {
+          const d   = await (await fetch(`/api/analytics/ai-confidence?${getGlobalFilters()}`)).json();
+          const ctx = document.getElementById('confidenceChart').getContext('2d');
+          if (confidenceChart) confidenceChart.destroy();
+          confidenceChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: d.labels,
+              datasets: [{ label: 'Count', data: d.values, backgroundColor: '#6366f1' }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: { y: { beginAtZero: true } },
+              plugins: { title: { display: true, text: 'Average Confidence: ' + d.average + '%' } }
+            }
+          });
+        } catch (e) { console.error('fetchConfidence', e); }
+      }
+
+      // ─── Weekly Repair Performance ────────────────────────────────────────────
+      let repairRawLabels = [], repairDailyBreakdown = {};
+
+      async function fetchRepair() {
+        try {
+          const resp = await (await fetch(`/api/analytics/repair-performance?${getGlobalFilters()}`)).json();
+          const ctx  = document.getElementById('repairChart').getContext('2d');
+          if (repairChart) repairChart.destroy();
+          repairRawLabels      = resp.labels || [];
+          repairDailyBreakdown = resp.daily_breakdown || {};
+          repairChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: repairRawLabels.map(formatWeekLabel),
+              datasets: [{
+                label: 'Repairs Completed',
+                data: resp.values,
+                backgroundColor: '#10b981',
+                borderRadius: 4,
+                borderSkipped: false
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    title: items => items[0].label,
+                    beforeBody(items) {
+                      const days = repairDailyBreakdown[repairRawLabels[items[0].dataIndex]];
+                      if (!days || !Object.keys(days).length) return [];
+                      return Object.entries(days)
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([date, count]) => {
+                          const dt = new Date(date + 'T00:00:00');
+                          return `${dt.toLocaleString('default', { weekday: 'short' })} ${dt.toLocaleString('default', { month: 'short', day: 'numeric' })}: ${count}`;
+                        });
+                    },
+                    label: item => `Total: ${item.raw}`
+                  }
+                }
+              }
+            }
+          });
+        } catch (e) { console.error('fetchRepair', e); }
+      }
+
+      // ─── Event wiring ─────────────────────────────────────────────────────────
+      document.getElementById('applyFiltersBtn').addEventListener('click', refreshAll);
+
+      document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+        document.getElementById('timeRangePreset').value = '30d';
+        document.getElementById('startDate').value = '';
+        document.getElementById('endDate').value   = '';
+        document.getElementById('globalAdminArea').value = 'all';
+        document.getElementById('globalAdminLevel').value = 'province';
+        // Hide custom date inputs and show preset
+        document.getElementById('customDateRange').style.display = 'none';
+        document.getElementById('customDateRangeEnd').style.display = 'none';
+        loadAreas('globalAdminArea', 'province').then(refreshAll);
+      });
+
+      // ─── Initial load ─────────────────────────────────────────────────────────
+      loadAreas('globalAdminArea', 'province').then(() => {
+        fetchOverview();
+        fetchTrends();
+        fetchStatus();
+        fetchConfidence();
+        fetchRepair();
+        // Defer heatmap so the map container has its final dimensions
+        setTimeout(() => { map.invalidateSize(); fetchHeatmap(); }, 100);
+      });
+
+      // ─── Notifications ────────────────────────────────────────────────────────
+      (function () {
+        const notifBtn      = document.getElementById('notifBtn');
+        const notifBadge    = document.getElementById('notifBadge');
+        const notifPopup    = document.getElementById('notifPopup');
+        const notifList     = document.getElementById('notifList');
+        const markAllReadBtn = document.getElementById('markAllReadBtn');
+        let notifOpen = false;
+
+        async function fetchNotifications() {
+          try {
+            const res  = await fetch('/notifications/unread');
+            const data = await res.json();
+            const items = data.items || [];
+            notifBadge.style.display    = data.count > 0 ? 'block' : 'none';
+            markAllReadBtn.style.display = data.count > 0 ? 'block' : 'none';
+            notifList.innerHTML = items.length === 0
+              ? '<div style="padding:20px; text-align:center; color:#64748b; font-size:13px;">No new notifications</div>'
+              : items.map(n => `
+                  <div style="padding:12px 16px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.2s;"
                        onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'"
                        onclick="handleNotifClick(${n.id}, '${n.link || ''}')">
                     <div style="font-weight:600; font-size:13px; color:#0f172a; margin-bottom:4px;">${n.title}</div>
                     <div style="font-size:12px; color:#475569; line-height:1.4;">${n.message}</div>
                     <div style="font-size:11px; color:#94a3b8; margin-top:6px;">${n.created_at_iso}</div>
-                  </div>
-                `).join('');
-              }
-            } catch (e) {
-              console.error(e);
-            }
+                  </div>`).join('');
+          } catch (e) { console.error(e); }
+        }
+
+        window.handleNotifClick = async function (id, link) {
+          try {
+            await fetch(`/notifications/mark-read/${id}`, { method: 'POST' });
+            if (link) window.location.href = link; else fetchNotifications();
+          } catch (e) {}
+        };
+
+        markAllReadBtn.addEventListener('click', async e => {
+          e.stopPropagation();
+          try { await fetch('/notifications/mark-all-read', { method: 'POST' }); fetchNotifications(); } catch (e) {}
+        });
+
+        notifBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          notifOpen = !notifOpen;
+          notifPopup.style.display = notifOpen ? 'block' : 'none';
+          if (notifOpen) fetchNotifications();
+        });
+
+        document.addEventListener('click', e => {
+          if (notifOpen && !notifPopup.contains(e.target) && !notifBtn.contains(e.target)) {
+            notifOpen = false;
+            notifPopup.style.display = 'none';
           }
+        });
 
-          window.handleNotifClick = async function(id, link) {
-            try {
-              await fetch(`/notifications/mark-read/${id}`, { method: 'POST' });
-              if (link) window.location.href = link;
-              else fetchNotifications();
-            } catch (e) {}
-          };
-
-          markAllReadBtn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            try {
-              await fetch('/notifications/mark-all-read', { method: 'POST' });
-              fetchNotifications();
-            } catch (e) {}
-          });
-
-          notifBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            notifOpen = !notifOpen;
-            notifPopup.style.display = notifOpen ? 'block' : 'none';
-            if (notifOpen) fetchNotifications();
-          });
-
-          document.addEventListener('click', (e) => {
-            if (notifOpen && !notifPopup.contains(e.target) && !notifBtn.contains(e.target)) {
-              notifOpen = false;
-              notifPopup.style.display = 'none';
-            }
-          });
-
-          // Poll notifications every 30s
-          fetchNotifications();
-          setInterval(fetchNotifications, 30000);
-        })();
+        fetchNotifications();
+        setInterval(fetchNotifications, 30000);
+      })();
     </script>
     {% include 'logout_modal.html' %}
   </body>

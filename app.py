@@ -1148,8 +1148,13 @@ def register():
     username = (request.form.get('username') or '').strip()
     email = (request.form.get('email') or '').strip()
     password = request.form.get('password') or ''
+    terms_agreed = request.form.get('terms') == 'on'  # Checkbox value
 
     field_errors = {}
+
+    # Terms and conditions validation
+    if not terms_agreed:
+        field_errors.setdefault('terms', []).append('You must agree to the Terms and Conditions to register')
 
     # Username validation
     if not username:
@@ -3182,6 +3187,27 @@ def flag_report(report_id):
     })
 
 
+@app.route('/api/false-report-threshold', methods=['GET'])
+@login_required_view
+def get_false_report_threshold():
+    """Get the current false report threshold setting."""
+    try:
+        threshold_setting = Settings.query.filter_by(key='false_report_threshold').first()
+        threshold = int(threshold_setting.value) if threshold_setting else 5
+        
+        return jsonify({
+            'success': True,
+            'threshold': threshold
+        })
+    except Exception as e:
+        app.logger.error(f"Error fetching false report threshold: {e}")
+        return jsonify({
+            'success': False,
+            'threshold': 5,  # Default fallback
+            'error': 'Failed to fetch threshold'
+        }), 500
+
+
 @app.route('/reports/<int:report_id>/fix', methods=['POST'])
 def manual_fix_report(report_id):
     current_user = _login_required()
@@ -3390,6 +3416,12 @@ def _cleanup_expired_otps_periodically():
 @require_admin_view
 def analytics_page():
     return render_template('analytics.html', current_user=_get_current_user(), is_admin=True)
+
+@app.route('/activity-logs')
+def activity_logs_page():
+    current_user = _require_admin_or_moderator()
+    is_admin = _is_admin(current_user)
+    return render_template('activity_logs.html', current_user=current_user, is_admin=is_admin)
 
 @app.route('/api/analytics/overview')
 @require_admin_view

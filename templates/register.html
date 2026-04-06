@@ -38,6 +38,16 @@
         <div class="field-error" id="passwordError" style="display:none;"><ul><li></li></ul></div>
       </div>
 
+      <div class="field">
+        <div class="checkbox-field">
+          <input id="terms" name="terms" type="checkbox" class="checkbox-input" />
+          <label for="terms" class="checkbox-label">
+            I agree to the Terms and Conditions
+          </label>
+        </div>
+        <div class="field-error" id="termsError" style="display:none;"><ul><li></li></ul></div>
+      </div>
+
       <div class="actions">
         <button class="btn" type="submit" id="registerBtn">Register</button>
       </div>
@@ -94,7 +104,7 @@
     }
 
     function clearErrors() {
-      ['username', 'email', 'password', 'otp'].forEach(field => {
+      ['username', 'email', 'password', 'terms', 'otp'].forEach(field => {
         const errorDiv = document.getElementById(field + 'Error');
         if (errorDiv) errorDiv.style.display = 'none';
         
@@ -151,12 +161,94 @@
           });
         }
       });
+      
+      // Handle terms checkbox change
+      const termsCheckbox = document.getElementById('terms');
+      if (termsCheckbox) {
+        termsCheckbox.addEventListener('change', function() {
+          if (this.checked) {
+            // Show terms modal when checkbox is checked
+            showTermsModal();
+          } else {
+            // Remove error class and message when checkbox is unchecked
+            this.classList.remove('input-error');
+            const errorDiv = document.getElementById('termsError');
+            if (errorDiv) {
+              errorDiv.style.display = 'none';
+            }
+          }
+        });
+      }
+    });
+
+    // Terms Modal Functions
+    function showTermsModal() {
+      const modal = document.getElementById('termsModal');
+      if (modal) {
+        modal.style.display = 'flex';
+        // Focus the first button for accessibility
+        const agreeBtn = modal.querySelector('.terms-btn-primary');
+        if (agreeBtn) {
+          setTimeout(() => agreeBtn.focus(), 100);
+        }
+      }
+    }
+
+    function closeTermsModal() {
+      const modal = document.getElementById('termsModal');
+      if (modal) {
+        modal.style.display = 'none';
+      }
+    }
+
+    function agreeTerms() {
+      const termsCheckbox = document.getElementById('terms');
+      if (termsCheckbox) {
+        termsCheckbox.checked = true;
+        // Remove any error styling
+        termsCheckbox.classList.remove('input-error');
+        const errorDiv = document.getElementById('termsError');
+        if (errorDiv) {
+          errorDiv.style.display = 'none';
+        }
+      }
+      closeTermsModal();
+    }
+
+    function disagreeTerms() {
+      const termsCheckbox = document.getElementById('terms');
+      if (termsCheckbox) {
+        termsCheckbox.checked = false;
+      }
+      closeTermsModal();
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        const modal = document.getElementById('termsModal');
+        if (modal && modal.style.display === 'flex') {
+          closeTermsModal();
+          // Uncheck the checkbox when closing with Escape
+          const termsCheckbox = document.getElementById('terms');
+          if (termsCheckbox) {
+            termsCheckbox.checked = false;
+          }
+        }
+      }
     });
 
     // Handle registration form submission
     registerForm.addEventListener('submit', async function(e) {
       e.preventDefault();
       clearErrors();
+      
+      // Client-side validation for terms checkbox
+      const termsCheckbox = document.getElementById('terms');
+      if (!termsCheckbox.checked) {
+        showError('terms', 'You must agree to the Terms and Conditions to register');
+        return;
+      }
       
       const formData = new FormData(registerForm);
       userEmail = formData.get('email');
@@ -309,5 +401,37 @@
       }
     });
   </script>
+
+  <!-- Terms and Conditions Modal -->
+  <div id="termsModal" class="terms-modal" style="display:none;" role="dialog" aria-labelledby="termsModalTitle" aria-describedby="termsModalBody" aria-modal="true">
+    <div class="terms-modal-overlay" onclick="closeTermsModal()" aria-hidden="true"></div>
+    <div class="terms-modal-content" role="document">
+      <div class="terms-modal-header">
+        <h3 id="termsModalTitle" class="terms-modal-title">Terms and Conditions</h3>
+        <button class="terms-modal-close" onclick="closeTermsModal()" aria-label="Close terms modal">×</button>
+      </div>
+      <div id="termsModalBody" class="terms-modal-body">
+        <p><strong>Account Suspension Policy</strong></p>
+        <p>By checking the Terms and Conditions checkbox, you acknowledge and agree to the following:</p>
+        
+        <ul class="terms-list">
+          <li>Accounts with <strong>five (5) confirmed false reports</strong> may be <strong>permanently suspended</strong></li>
+          <li>False reports include reporting non-existent defects, misrepresenting severity, submitting duplicates, or providing inaccurate information</li>
+          <li>All reports are subject to community review and administrative verification</li>
+          <li>Suspension decisions are final and accounts cannot be restored</li>
+        </ul>
+        
+        <p><strong>Policy Changes</strong></p>
+        <p>These policies are <strong>subject to change without prior notice</strong>. Continued use of the service constitutes acceptance of any policy modifications.</p>
+        
+        <p class="terms-confirmation">Do you agree to these terms and conditions?</p>
+      </div>
+      <div class="terms-modal-footer">
+        <button class="btn terms-btn-secondary" onclick="disagreeTerms()" aria-label="Disagree and uncheck terms">Disagree</button>
+        <button class="btn terms-btn-primary" onclick="agreeTerms()" aria-label="Agree to terms and conditions">I Agree</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

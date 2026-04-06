@@ -1,0 +1,461 @@
+<!-- False Report Warning Modal -->
+<div id="falseReportWarningModal" class="modal" style="display:none;" role="dialog" aria-labelledby="warningModalTitle" aria-describedby="warningModalBody" aria-modal="true">
+    <div class="modal-overlay" onclick="closeFalseReportWarning()" aria-hidden="true"></div>
+    <div class="modal-content" role="document">
+        <div class="modal-header">
+            <h3 id="warningModalTitle" class="modal-title warning-title">⚠️ False Report Warning</h3>
+        </div>
+        <div id="warningModalBody" class="modal-body">
+            <p><strong>Please ensure your report is accurate and truthful.</strong></p>
+            <p>Submitting <strong id="thresholdValue">5</strong> false reports will result in <strong>permanent account blocking</strong>.</p>
+            
+            <p>False reports include:</p>
+            <ul class="warning-list">
+                <li>Reporting non-existent defects</li>
+                <li>Misrepresenting the severity or type of defect</li>
+                <li>Submitting duplicate reports for the same issue</li>
+                <li>Providing inaccurate location information</li>
+            </ul>
+            
+            <p class="confirmation-text">Are you sure you want to proceed with this report?</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn secondary" onclick="closeFalseReportWarning()" aria-label="Cancel report submission">Cancel</button>
+            <button class="btn primary warning-btn" onclick="proceedWithReport()" aria-label="Proceed with report submission">Proceed</button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Reuse existing modal styles with warning-specific additions */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+}
+
+.modal-content {
+    position: relative;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    max-width: 480px;
+    width: 90%;
+    z-index: 10000;
+    animation: modalSlideIn 0.2s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.modal-title.warning-title {
+    color: #dc2626;
+}
+
+.modal-body {
+    padding: 20px 24px;
+    color: #475569;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.warning-list {
+    margin: 12px 0;
+    padding-left: 20px;
+    color: #475569;
+}
+
+.warning-list li {
+    margin: 6px 0;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.confirmation-text {
+    margin-top: 16px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.modal-footer {
+    padding: 16px 24px 20px;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.modal-footer .btn {
+    min-width: 100px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    font-size: 14px;
+    transition: background-color 0.15s, transform 0.02s;
+}
+
+.modal-footer .btn:active {
+    transform: translateY(1px);
+}
+
+.modal-footer .btn.secondary {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.modal-footer .btn.secondary:hover {
+    background: #e2e8f0;
+}
+
+.modal-footer .btn.primary {
+    background: #dc2626;
+    color: white;
+}
+
+.modal-footer .btn.primary:hover {
+    background: #b91c1c;
+}
+
+.modal-footer .btn.warning-btn {
+    background: #ea580c;
+}
+
+.modal-footer .btn.warning-btn:hover {
+    background: #c2410c;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 640px) {
+    .modal-content {
+        width: 95%;
+        margin: 0 auto;
+        max-width: none;
+    }
+    
+    .modal-body {
+        font-size: 14px;
+        line-height: 1.5;
+        padding: 16px 20px;
+    }
+    
+    .modal-header {
+        padding: 16px 20px 12px;
+    }
+    
+    .modal-footer {
+        padding: 12px 20px 16px;
+        flex-direction: column-reverse;
+    }
+    
+    .modal-footer .btn {
+        width: 100%;
+        min-width: auto;
+    }
+    
+    .warning-list {
+        font-size: 13px;
+    }
+}
+</style>
+
+<script>
+// False Report Warning System
+window.pendingFormSubmission = null;
+window.warningModalShown = false;
+
+console.log('False report warning modal script loaded');
+
+async function showFalseReportWarning(formElement) {
+    console.log('showFalseReportWarning called');
+    try {
+        // Fetch current threshold
+        const response = await fetch('/api/false-report-threshold', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const threshold = data.threshold || 5; // Default fallback
+        
+        // Update modal content
+        const thresholdElement = document.getElementById('thresholdValue');
+        if (thresholdElement) {
+            thresholdElement.textContent = threshold;
+        }
+        
+        // Show modal
+        const modal = document.getElementById('falseReportWarningModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            window.warningModalShown = true;
+            
+            // Store form reference for later submission
+            window.pendingFormSubmission = formElement;
+            console.log('Modal displayed successfully');
+        } else {
+            console.error('Modal element not found!');
+        }
+        
+    } catch (error) {
+        console.error('Failed to fetch threshold:', error);
+        // Fallback: show warning with default value
+        const thresholdElement = document.getElementById('thresholdValue');
+        if (thresholdElement) {
+            thresholdElement.textContent = '5';
+        }
+        
+        const modal = document.getElementById('falseReportWarningModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            window.warningModalShown = true;
+            window.pendingFormSubmission = formElement;
+            console.log('Modal displayed with fallback');
+        } else {
+            console.error('Modal element not found in fallback!');
+        }
+    }
+}
+
+function closeFalseReportWarning() {
+    const modal = document.getElementById('falseReportWarningModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    window.warningModalShown = false;
+    window.pendingFormSubmission = null;
+}
+
+function proceedWithReport() {
+    // Close modal first
+    const modal = document.getElementById('falseReportWarningModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    
+    if (window.pendingFormSubmission) {
+        // Mark that warning was shown to bypass the warning check
+        window.warningModalShown = true;
+        
+        // Run validation manually instead of dispatching event
+        const form = window.pendingFormSubmission;
+        const latEl = document.getElementById('latitude');
+        const lngEl = document.getElementById('longitude');
+        const typeEl = document.getElementById('obstruction_type');
+        const photoEl = document.getElementById('photo');
+        
+        // Clear all previous errors
+        const clearAllErrors = () => {
+          const hideFieldError = (errorId) => {
+            const errorEl = document.getElementById(errorId);
+            if (errorEl) errorEl.style.display = 'none';
+          };
+          const removeErrorClass = (fieldId) => {
+            const field = document.getElementById(fieldId);
+            if (field) field.classList.remove('input-error');
+          };
+          
+          hideFieldError('typeError');
+          hideFieldError('latitudeError');
+          hideFieldError('longitudeError');
+          hideFieldError('photoError');
+          removeErrorClass('obstruction_type');
+          removeErrorClass('latitude');
+          removeErrorClass('longitude');
+          
+          const errEl = document.getElementById('clientError');
+          if (errEl) {
+            errEl.style.display = 'none';
+            errEl.textContent = '';
+          }
+        };
+        
+        const showFieldError = (errorId, message) => {
+          const errorEl = document.getElementById(errorId);
+          if (errorEl) {
+            const messageEl = errorEl.querySelector('.error-message');
+            if (messageEl) messageEl.textContent = message;
+            errorEl.style.display = 'block';
+          }
+        };
+        
+        const addErrorClass = (fieldId) => {
+          const field = document.getElementById(fieldId);
+          if (field) field.classList.add('input-error');
+        };
+        
+        const showClientError = (msg) => {
+          const errEl = document.getElementById('clientError');
+          if (errEl && msg) {
+            errEl.style.display = 'block';
+            errEl.textContent = msg;
+          }
+        };
+        
+        clearAllErrors();
+        
+        // Validate form
+        const lat = latEl ? Number(latEl.value) : NaN;
+        const lng = lngEl ? Number(lngEl.value) : NaN;
+        const t = typeEl ? String(typeEl.value || '').trim() : '';
+        
+        let hasErrors = false;
+        
+        // Validate type selection
+        if (!t) {
+          showFieldError('typeError', 'Please select a type of obstruction');
+          addErrorClass('obstruction_type');
+          hasErrors = true;
+        }
+        
+        // Validate latitude
+        if (!latEl || !latEl.value.trim()) {
+          showFieldError('latitudeError', 'Latitude is required');
+          addErrorClass('latitude');
+          hasErrors = true;
+        } else if (!Number.isFinite(lat)) {
+          showFieldError('latitudeError', 'Please enter a valid latitude number');
+          addErrorClass('latitude');
+          hasErrors = true;
+        } else if (lat < -90 || lat > 90) {
+          showFieldError('latitudeError', 'Latitude must be between -90 and 90');
+          addErrorClass('latitude');
+          hasErrors = true;
+        }
+        
+        // Validate longitude
+        if (!lngEl || !lngEl.value.trim()) {
+          showFieldError('longitudeError', 'Longitude is required');
+          addErrorClass('longitude');
+          hasErrors = true;
+        } else if (!Number.isFinite(lng)) {
+          showFieldError('longitudeError', 'Please enter a valid longitude number');
+          addErrorClass('longitude');
+          hasErrors = true;
+        } else if (lng < -180 || lng > 180) {
+          showFieldError('longitudeError', 'Longitude must be between -180 and 180');
+          addErrorClass('longitude');
+          hasErrors = true;
+        }
+
+        // Validate photo
+        if (!photoEl || !photoEl.files || photoEl.files.length === 0) {
+          showFieldError('photoError', 'Photo is required');
+          hasErrors = true;
+        } else {
+          // Validate file type and size
+          const file = photoEl.files[0];
+          const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+          if (!validTypes.includes(file.type)) {
+            showFieldError('photoError', 'Invalid file type. Please upload JPG or PNG');
+            hasErrors = true;
+          } else if (file.size > 5 * 1024 * 1024) { // 5MB
+            showFieldError('photoError', 'File too large. Maximum size is 5MB');
+            hasErrors = true;
+          }
+        }
+        
+        if (!hasErrors) {
+            form.submit();
+        } else {
+            showClientError('Please correct the errors above and try again.');
+        }
+    }
+    
+    // Clean up
+    window.pendingFormSubmission = null;
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('falseReportWarningModal');
+        if (modal && modal.style.display === 'flex') {
+            closeFalseReportWarning();
+        }
+    }
+});
+
+// Accessibility: Focus management and keyboard navigation
+function manageFocus() {
+    const modal = document.getElementById('falseReportWarningModal');
+    if (modal && modal.style.display === 'flex') {
+        // Focus the first button in the modal
+        const cancelButton = modal.querySelector('.modal-footer .btn.secondary');
+        if (cancelButton) {
+            cancelButton.focus();
+        }
+        
+        // Trap focus within modal
+        const focusableElements = modal.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const firstFocusable = focusableElements[0];
+        const lastFocusable = focusableElements[focusableElements.length - 1];
+        
+        modal.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                if (e.shiftKey) {
+                    // Shift + Tab
+                    if (document.activeElement === firstFocusable) {
+                        e.preventDefault();
+                        lastFocusable.focus();
+                    }
+                } else {
+                    // Tab
+                    if (document.activeElement === lastFocusable) {
+                        e.preventDefault();
+                        firstFocusable.focus();
+                    }
+                }
+            }
+        });
+    }
+}
+
+// Make the function globally accessible
+window.showFalseReportWarning = showFalseReportWarning;
+console.log('Global showFalseReportWarning function set');
+</script>

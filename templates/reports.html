@@ -106,17 +106,26 @@
                       <option value="Road Crack" {% if values.obstruction_type == 'Road Crack' %}selected{% endif %}>Road Crack</option>
                       <option value="Other" {% if values.obstruction_type == 'Other' %}selected{% endif %}>Other</option>
                     </select>
+                    <div id="typeError" class="field-error" style="display:none; margin-top:6px;">
+                      <div class="error-message">Please select a type of obstruction</div>
+                    </div>
                   </div>
 
                   <!-- Location Inputs -->
                   <div class="control location-group">
                     <label class="control-label" for="latitude">Latitude</label>
                     <input id="latitude" class="control-input" type="number" step="any" name="latitude" value="{{ values.latitude or '' }}" placeholder="0.000000" required />
+                    <div id="latitudeError" class="field-error" style="display:none; margin-top:6px;">
+                      <div class="error-message">Please enter a valid latitude</div>
+                    </div>
                   </div>
 
                   <div class="control">
                     <label class="control-label" for="longitude">Longitude</label>
                     <input id="longitude" class="control-input" type="number" step="any" name="longitude" value="{{ values.longitude or '' }}" placeholder="0.000000" required />
+                    <div id="longitudeError" class="field-error" style="display:none; margin-top:6px;">
+                      <div class="error-message">Please enter a valid longitude</div>
+                    </div>
                   </div>
 
                   <div class="full-width" style="display:flex; justify-content:flex-end;">
@@ -252,15 +261,28 @@
       })();
       
       (function () {
-        const latEl = document.getElementById('latitude');
-        const lngEl = document.getElementById('longitude');
-        const photoEl = document.getElementById('photo');
-        const uploadBox = document.getElementById('uploadBox');
-        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
-        const previewImg = document.getElementById('photoPreview');
-        const form = document.getElementById('reportForm');
-        const errEl = document.getElementById('clientError');
-        const getLocationBtn = document.getElementById('getLocationBtn');
+        console.log('JavaScript is working - reports.html script started');
+        
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+          console.log('DOM loaded, setting up form handlers');
+          
+          const latEl = document.getElementById('latitude');
+          const lngEl = document.getElementById('longitude');
+          const photoEl = document.getElementById('photo');
+          const uploadBox = document.getElementById('uploadBox');
+          const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+          const previewImg = document.getElementById('photoPreview');
+          const form = document.getElementById('reportForm');
+          const errEl = document.getElementById('clientError');
+          const getLocationBtn = document.getElementById('getLocationBtn');
+
+          console.log('Elements found:', {
+            form: !!form,
+            latEl: !!latEl,
+            lngEl: !!lngEl,
+            photoEl: !!photoEl
+          });
 
         // Parse URL params
         function getParam(name) {
@@ -293,6 +315,55 @@
           }
           errEl.style.display = 'block';
           errEl.textContent = msg;
+        }
+        
+        // Field-specific error handling
+        function showFieldError(errorId, message) {
+          const errorEl = document.getElementById(errorId);
+          if (errorEl) {
+            const messageEl = errorEl.querySelector('.error-message');
+            if (messageEl) {
+              messageEl.textContent = message;
+            }
+            errorEl.style.display = 'block';
+          }
+        }
+        
+        function hideFieldError(errorId) {
+          const errorEl = document.getElementById(errorId);
+          if (errorEl) {
+            errorEl.style.display = 'none';
+          }
+        }
+        
+        function addErrorClass(fieldId) {
+          const field = document.getElementById(fieldId);
+          if (field) {
+            field.classList.add('input-error');
+          }
+        }
+        
+        function removeErrorClass(fieldId) {
+          const field = document.getElementById(fieldId);
+          if (field) {
+            field.classList.remove('input-error');
+          }
+        }
+        
+        function clearAllErrors() {
+          // Hide all field errors
+          hideFieldError('typeError');
+          hideFieldError('latitudeError');
+          hideFieldError('longitudeError');
+          hideFieldError('photoError');
+          
+          // Remove error classes
+          removeErrorClass('obstruction_type');
+          removeErrorClass('latitude');
+          removeErrorClass('longitude');
+          
+          // Clear general error
+          showClientError('');
         }
 
         // Photo Preview Logic
@@ -349,67 +420,122 @@
           });
         }
 
-        // Form Validation
+        // Form Validation with False Report Warning Integration
+        console.log('Setting up form handler, form element:', form);
         if (form) {
+          console.log('Form found, adding event listener');
+          
+          // Add a simple click handler as backup
+          const submitBtn = form.querySelector('button[type="submit"]');
+          if (submitBtn) {
+            console.log('Submit button found, adding backup click handler');
+            submitBtn.addEventListener('click', function(e) {
+              console.log('Submit button clicked!');
+            });
+          }
+          
           form.addEventListener('submit', (e) => {
-            showClientError('');
+            console.log('Submit event triggered!');
+            // If warning hasn't been shown yet, show it first
+            if (!window.warningModalShown) {
+              console.log('Warning not shown, preventing default');
+              e.preventDefault();
+              
+              // Ensure the warning function is available
+              if (typeof window.showFalseReportWarning === 'function') {
+                console.log('Calling showFalseReportWarning');
+                window.showFalseReportWarning(form);
+              } else {
+                console.log('showFalseReportWarning not available, using timeout');
+                // If modal not loaded yet, wait and try again
+                setTimeout(() => {
+                  if (typeof window.showFalseReportWarning === 'function') {
+                    console.log('Calling showFalseReportWarning after timeout');
+                    window.showFalseReportWarning(form);
+                  } else {
+                    console.log('Still not available, using fallback alert');
+                    // Fallback: proceed without warning
+                    alert('Warning: Please ensure your report is accurate. Submitting false reports may result in account blocking.');
+                    window.warningModalShown = true;
+                    form.submit();
+                  }
+                }, 50);
+              }
+              return;
+            }
+            
+            console.log('Warning already shown, proceeding with validation');
+            
+            // Clear all previous errors
+            clearAllErrors();
+            
+            // Get form elements
             const lat = latEl ? Number(latEl.value) : NaN;
             const lng = lngEl ? Number(lngEl.value) : NaN;
             const typeEl = document.getElementById('obstruction_type');
             const t = typeEl ? String(typeEl.value || '').trim() : '';
-
-            if (!Number.isFinite(lat) || !Number.isFinite(lng) || !t) {
-              e.preventDefault();
-              showClientError('Please fill in Latitude, Longitude, and Type of obstruction.');
-              return;
-            }
-            if (lat < -90 || lat > 90) {
-              e.preventDefault();
-              showClientError('Latitude must be between -90 and 90.');
-              return;
-            }
-            if (lng < -180 || lng > 180) {
-              e.preventDefault();
-              showClientError('Longitude must be between -180 and 180.');
-              return;
-            }
-
-            // Photo validation
             const photoInput = document.getElementById('photo');
-            const photoError = document.getElementById('photoError');
             
-            if (!photoInput.files || photoInput.files.length === 0) {
-              e.preventDefault();
-              if (photoError) {
-                photoError.style.display = 'block';
-                photoError.querySelector('.error-message').textContent = 'Photo is required';
-              }
-              showClientError('Photo is required. Please upload an image.');
-              return;
+            let hasErrors = false;
+            
+            // Validate type selection
+            if (!t) {
+              showFieldError('typeError', 'Please select a type of obstruction');
+              addErrorClass('obstruction_type');
+              hasErrors = true;
             }
             
-            // Validate file type
-            const file = photoInput.files[0];
-            const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-            if (!validTypes.includes(file.type)) {
-              e.preventDefault();
-              if (photoError) {
-                photoError.style.display = 'block';
-                photoError.querySelector('.error-message').textContent = 'Invalid file type. Please upload JPG or PNG.';
-              }
-              showClientError('Invalid file type. Please upload JPG or PNG.');
-              return;
+            // Validate latitude
+            if (!latEl || !latEl.value.trim()) {
+              showFieldError('latitudeError', 'Latitude is required');
+              addErrorClass('latitude');
+              hasErrors = true;
+            } else if (!Number.isFinite(lat)) {
+              showFieldError('latitudeError', 'Please enter a valid latitude number');
+              addErrorClass('latitude');
+              hasErrors = true;
+            } else if (lat < -90 || lat > 90) {
+              showFieldError('latitudeError', 'Latitude must be between -90 and 90');
+              addErrorClass('latitude');
+              hasErrors = true;
             }
             
-            // Validate file size (max 5MB)
-            const maxSize = 5 * 1024 * 1024; // 5MB
-            if (file.size > maxSize) {
-              e.preventDefault();
-              if (photoError) {
-                photoError.style.display = 'block';
-                photoError.querySelector('.error-message').textContent = 'File too large. Maximum size is 5MB.';
+            // Validate longitude
+            if (!lngEl || !lngEl.value.trim()) {
+              showFieldError('longitudeError', 'Longitude is required');
+              addErrorClass('longitude');
+              hasErrors = true;
+            } else if (!Number.isFinite(lng)) {
+              showFieldError('longitudeError', 'Please enter a valid longitude number');
+              addErrorClass('longitude');
+              hasErrors = true;
+            } else if (lng < -180 || lng > 180) {
+              showFieldError('longitudeError', 'Longitude must be between -180 and 180');
+              addErrorClass('longitude');
+              hasErrors = true;
+            }
+
+            // Validate photo
+            if (!photoInput || !photoInput.files || photoInput.files.length === 0) {
+              showFieldError('photoError', 'Photo is required');
+              hasErrors = true;
+            } else {
+              // Validate file type and size
+              const file = photoInput.files[0];
+              const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+              if (!validTypes.includes(file.type)) {
+                showFieldError('photoError', 'Invalid file type. Please upload JPG or PNG');
+                hasErrors = true;
+              } else if (file.size > 5 * 1024 * 1024) { // 5MB
+                showFieldError('photoError', 'File too large. Maximum size is 5MB');
+                hasErrors = true;
               }
-              showClientError('File too large. Maximum size is 5MB.');
+            }
+            
+            if (hasErrors) {
+              e.preventDefault();
+              // Show general error message
+              showClientError('Please correct the errors above and try again.');
               return;
             }
           });
@@ -418,15 +544,37 @@
         // Clear photo error when file is selected
         if (photoEl) {
           photoEl.addEventListener('change', function() {
-            const photoError = document.getElementById('photoError');
-            if (photoError) {
-              photoError.style.display = 'none';
-            }
+            hideFieldError('photoError');
           });
         }
+        
+        // Clear field errors when users interact with fields
+        const typeEl = document.getElementById('obstruction_type');
+        if (typeEl) {
+          typeEl.addEventListener('change', function() {
+            hideFieldError('typeError');
+            removeErrorClass('obstruction_type');
+          });
+        }
+        
+        if (latEl) {
+          latEl.addEventListener('input', function() {
+            hideFieldError('latitudeError');
+            removeErrorClass('latitude');
+          });
+        }
+        
+        if (lngEl) {
+          lngEl.addEventListener('input', function() {
+            hideFieldError('longitudeError');
+            removeErrorClass('longitude');
+          });
+        }
+        }); // Close DOMContentLoaded
       })();
     </script>
     <script src="{{ url_for('static', filename='js/mobile-nav.js') }}"></script>
     {% include 'logout_modal.html' %}
+    {% include 'false_report_warning_modal.html' %}
   </body>
 </html>
