@@ -8,9 +8,16 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/users.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-nav.css') }}" />
+    <script src="{{ url_for('static', filename='js/sticky-filter.js') }}"></script>
   </head>
   <body>
     <header class="topbar">
+      <button class="hamburger" aria-label="Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
       <div class="brand">SURVEYOR.AI</div>
         <div style="margin-left:auto; margin-right:12px; position:relative;">
           <button id="notifBtn" style="background:none; border:none; width:40px; height:40px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; position:relative;">
@@ -28,6 +35,27 @@
           </div>
         </div>
     </header>
+
+    <nav class="mobile-nav" aria-label="Main navigation">
+        <div class="mobile-nav-overlay"></div>
+        <div class="mobile-nav-content">
+            <div class="mobile-nav-header">
+                <div class="brand">SURVEYOR.AI</div>
+                <button class="mobile-nav-close" aria-label="Close menu">×</button>
+            </div>
+            <div class="mobile-nav-links">
+                <a href="/index">Survey</a>
+                <a href="/map">Map</a>
+                <a class="active" href="/users">User management</a>
+                <a href="/defects">Defects Management</a>
+                <a href="/settings">Settings</a>
+                <a href="/admin/backups">Backup Management</a>
+                <a href="/analytics">Analytics</a>
+                <a href="/activity-logs">Activity Logs</a>
+                <a href="/logout">Log Out</a>
+            </div>
+        </div>
+    </nav>
 
     <div class="layout">
       <aside class="sidebar">
@@ -51,7 +79,74 @@
               <div class="title">User Management</div>
               <div class="subtitle">Registered accounts stored in users.db</div>
             </div>
-            <div class="count">Showing {{ start }}–{{ end }} of {{ total }}</div>
+            <div class="count mobile-hide">Showing {{ start }}–{{ end }} of {{ total }}</div>
+          </div>
+
+          <!-- Mobile Sticky Filter Bar -->
+          <div class="mobile-filter-bar-placeholder" id="mobileFilterBarPlaceholder"></div>
+          <div class="mobile-filter-bar" id="mobileFilterBar">
+            <!-- Quick role filter pills -->
+            <div class="mobile-filter-buttons">
+              <button class="user-filter-btn active" data-role="">All</button>
+              <button class="user-filter-btn" data-role="admin">Admin</button>
+              <button class="user-filter-btn" data-role="moderator">Mod</button>
+              <button class="user-filter-btn" data-role="user">User</button>
+              <button class="user-filter-btn" data-status="active">Active</button>
+              <button class="user-filter-btn" data-status="suspended">Suspended</button>
+              <button class="user-filter-btn" data-status="locked">Locked</button>
+            </div>
+            <!-- Collapsible advanced filters (same as desktop) -->
+            <button class="filter-toggle-btn" id="mobileUserFilterToggle" type="button">
+              <span>Advanced Filters</span>
+              <span class="filter-toggle-icon">▼</span>
+            </button>
+            <div class="filter-search-content" id="mobileUserFilterContent">
+              <form method="get" action="{{ url_for('users_page') }}" style="display:flex; flex-direction:column; gap:10px; padding-bottom:4px;">
+                <div>
+                  <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Search</label>
+                  <input type="text" name="q" value="{{ q or '' }}" class="mobile-search-input" placeholder="Username or email..." />
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                  <div>
+                    <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Role</label>
+                    <select name="role" class="mobile-search-input" style="width:100%; box-sizing:border-box;">
+                      <option value="" {% if not role_filter %}selected{% endif %}>All</option>
+                      <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Admin</option>
+                      <option value="moderator" {% if role_filter == 'moderator' %}selected{% endif %}>Moderator</option>
+                      <option value="user" {% if role_filter == 'user' %}selected{% endif %}>User</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Status</label>
+                    <select name="status" class="mobile-search-input" style="width:100%; box-sizing:border-box;">
+                      <option value="" {% if not status_filter %}selected{% endif %}>All</option>
+                      <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                      <option value="suspended" {% if status_filter == 'suspended' %}selected{% endif %}>Suspended</option>
+                      <option value="locked" {% if status_filter == 'locked' %}selected{% endif %}>Locked</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Sort</label>
+                  <select name="sort" class="mobile-search-input" style="width:100%; box-sizing:border-box;">
+                    <option value="az" {% if sort == 'az' %}selected{% endif %}>Username A–Z</option>
+                    <option value="za" {% if sort == 'za' %}selected{% endif %}>Username Z–A</option>
+                    <option value="reports_desc" {% if sort == 'reports_desc' %}selected{% endif %}>Most Reports</option>
+                    <option value="reports_asc" {% if sort == 'reports_asc' %}selected{% endif %}>Fewest Reports</option>
+                  </select>
+                </div>
+                <input type="hidden" name="per_page" value="{{ per_page }}" />
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                  <button type="submit" class="card-action-btn" style="padding:9px; font-size:12px; background:#1e90ff; color:#fff; border-color:#1e90ff; text-align:center; justify-content:center;">Apply</button>
+                  <a href="{{ url_for('users_page') }}" class="card-action-btn" style="padding:9px; font-size:12px; text-align:center; text-decoration:none; display:block; box-sizing:border-box;">Clear</a>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Mobile total count -->
+          <div class="mobile-total-count" id="mobileTotalCount" style="display:none;">
+            <span style="color:#64748b; font-size:12px; font-weight:600;">Total: {{ total }} user{{ 's' if total != 1 else '' }}</span>
           </div>
 
           <div class="controls card">
@@ -108,6 +203,110 @@
                 </div>
               </div>
             </form>
+          </div>
+
+          <!-- Mobile Card List (hidden on desktop) -->
+          <div class="mobile-user-list" id="mobileUserList">
+            {% if users and users|length > 0 %}
+              {% for u in users %}
+              <div class="user-card" 
+                   data-role="{{ u.role|default('')|lower }}" 
+                   data-status="{{ u.status|default('')|lower }}"
+                   data-username="{{ u.username|lower }}"
+                   data-email="{{ u.email|lower }}">
+                <div class="user-card-header">
+                  <div>
+                    <div class="user-card-name">{{ u.username }}</div>
+                    <div class="user-card-email">{{ u.email }}</div>
+                  </div>
+                  <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0;">
+                    <div style="display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end; align-items:center;">
+                      <span class="badge badge--{{ u.status }}">{{ u.status }}</span>
+                      {% if u.report_count > 0 %}
+                        <span class="badge" style="background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe;">{{ u.report_count }} reports</span>
+                      {% endif %}
+                      {% if is_admin and not (u.role|default('')|trim|lower == 'admin') %}
+                      <div class="card-action-menu">
+                        <button type="button" class="card-ellipsis-btn" onclick="toggleCardMenu(this)" aria-label="Actions">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
+                          </svg>
+                        </button>
+                        <div class="card-menu-content">
+                          {% if u.status != 'active' %}
+                          <form method="post" action="{{ url_for('user_set_status', user_id=u.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                            <input type="hidden" name="status" value="active" />
+                            <button type="submit" class="card-menu-item">Activate</button>
+                          </form>
+                          {% endif %}
+                          {% if u.status == 'active' %}
+                          <form method="post" action="{{ url_for('user_set_status', user_id=u.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                            <input type="hidden" name="status" value="suspended" />
+                            <button type="submit" class="card-menu-item warn">Suspend</button>
+                          </form>
+                          {% endif %}
+                          {% if u.status != 'locked' %}
+                          <form method="post" action="{{ url_for('user_set_status', user_id=u.id) }}" onsubmit="return confirm('Lock this account?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                            <input type="hidden" name="status" value="locked" />
+                            <button type="submit" class="card-menu-item danger">Lock</button>
+                          </form>
+                          {% endif %}
+                          <!-- Role change -->
+                          {% if u.role == 'user' %}
+                          <form method="post" action="{{ url_for('user_set_role', user_id=u.id) }}" onsubmit="return confirm('Promote {{ u.username }} to Moderator?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                            <input type="hidden" name="role" value="moderator" />
+                            <input type="hidden" name="next" value="{{ next_url }}" />
+                            <button type="submit" class="card-menu-item">Make Moderator</button>
+                          </form>
+                          <form method="post" action="{{ url_for('user_set_role', user_id=u.id) }}" onsubmit="return confirm('Promote {{ u.username }} to Admin? This grants full access.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                            <input type="hidden" name="role" value="admin" />
+                            <input type="hidden" name="next" value="{{ next_url }}" />
+                            <button type="submit" class="card-menu-item warn">Make Admin</button>
+                          </form>
+                          {% elif u.role == 'moderator' %}
+                          <form method="post" action="{{ url_for('user_set_role', user_id=u.id) }}" onsubmit="return confirm('Demote {{ u.username }} to User?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                            <input type="hidden" name="role" value="user" />
+                            <input type="hidden" name="next" value="{{ next_url }}" />
+                            <button type="submit" class="card-menu-item">Make User</button>
+                          </form>
+                          <form method="post" action="{{ url_for('user_set_role', user_id=u.id) }}" onsubmit="return confirm('Promote {{ u.username }} to Admin? This grants full access.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                            <input type="hidden" name="role" value="admin" />
+                            <input type="hidden" name="next" value="{{ next_url }}" />
+                            <button type="submit" class="card-menu-item warn">Make Admin</button>
+                          </form>
+                          {% endif %}
+                          {% if not u.has_activity %}
+                          <form method="post" action="{{ url_for('user_delete', user_id=u.id) }}" onsubmit="return confirm('Delete this user?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                            <button type="submit" class="card-menu-item danger">Delete</button>
+                          </form>
+                          {% endif %}
+                        </div>
+                      </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+                <div class="user-card-meta">
+                  <span class="user-card-role">{{ u.role }}</span>
+                </div>
+              </div>
+              {% endfor %}
+              <!-- Lazy load indicator -->
+              <div id="userLazyIndicator" style="display:none; padding:16px; text-align:center;">
+                <div class="loading-spinner" style="width:24px;height:24px;margin:0 auto 8px;border:3px solid #e2e8f0;border-top-color:#1e90ff;border-radius:50%;animation:spin 1s linear infinite;"></div>
+                <div style="font-size:12px;color:#64748b;">Loading more...</div>
+              </div>
+            {% else %}
+              <div style="padding:32px; text-align:center; color:#64748b; font-size:14px;">No users found.</div>
+            {% endif %}
           </div>
 
           <div class="card">
@@ -263,6 +462,60 @@
       </main>
     </div>
     <script>
+      function toggleCardMenu(btn) {
+        const menu = btn.nextElementSibling;
+        const isOpen = menu.classList.contains('show');
+        // Close all open card menus
+        document.querySelectorAll('.card-menu-content.show').forEach(m => {
+          m.classList.remove('show');
+          m.style.cssText = '';
+        });
+        if (!isOpen) {
+          const rect = btn.getBoundingClientRect();
+          // Get the parent card width
+          const card = btn.closest('.user-card');
+          const cardRect = card ? card.getBoundingClientRect() : null;
+
+          menu.classList.add('show');
+          menu.style.position = 'fixed';
+          menu.style.zIndex = '9999';
+
+          // Match card width
+          if (cardRect) {
+            menu.style.left = cardRect.left + 'px';
+            menu.style.right = 'auto';
+            menu.style.width = cardRect.width + 'px';
+          } else {
+            menu.style.right = (window.innerWidth - rect.right) + 'px';
+            menu.style.left = 'auto';
+            menu.style.width = '160px';
+          }
+
+          // Measure menu height after showing
+          const menuHeight = menu.offsetHeight;
+          const spaceBelow = window.innerHeight - rect.bottom;
+          const spaceAbove = rect.top;
+
+          if (spaceBelow < menuHeight + 8 && spaceAbove > menuHeight) {
+            menu.style.top = 'auto';
+            menu.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+          } else {
+            menu.style.top = (rect.bottom + 4) + 'px';
+            menu.style.bottom = 'auto';
+          }
+        }
+      }
+
+      // Close card menus on outside click
+      window.addEventListener('click', function(e) {
+        if (!e.target.closest('.card-action-menu')) {
+          document.querySelectorAll('.card-menu-content.show').forEach(m => {
+            m.classList.remove('show');
+            m.style.cssText = '';
+          });
+        }
+      });
+
       function toggleMenu(btn) {
         // Close others
         document.querySelectorAll('.menu-content.show').forEach(el => {
@@ -356,11 +609,179 @@
           }
         });
 
-        // Poll notifications every 30s
+        // Mobile/Tablet user management - cards ≤1024px, table >1024px
+      (function() {
+        const mobileList = document.getElementById('mobileUserList');
+        const mobileTotalCount = document.getElementById('mobileTotalCount');
+        const mobileFilterBar = document.getElementById('mobileFilterBar');
+        const desktopControls = document.querySelector('.controls.card');
+        const desktopTableCard = document.querySelector('.card .table-wrap');
+        const desktopPagination = document.querySelector('.pagination');
+
+        function isMobileTablet() { return window.innerWidth < 1024; }
+
+        function enableMobileView() {
+          if (mobileTotalCount) mobileTotalCount.style.display = 'block';
+          if (mobileList) mobileList.style.display = 'block';
+          if (mobileFilterBar) mobileFilterBar.style.display = 'block';
+          if (desktopControls) desktopControls.style.display = 'none';
+          if (desktopTableCard) desktopTableCard.closest('.card').style.display = 'none';
+          if (desktopPagination) desktopPagination.style.display = 'none';
+        }
+
+        function enableDesktopView() {
+          if (mobileTotalCount) mobileTotalCount.style.display = 'none';
+          if (mobileList) mobileList.style.display = 'none';
+          if (mobileFilterBar) mobileFilterBar.style.display = 'none';
+          if (desktopControls) desktopControls.style.display = '';
+          if (desktopTableCard) {
+            const tableCard = desktopTableCard.closest('.card');
+            if (tableCard) tableCard.style.display = '';
+            desktopTableCard.style.display = '';
+          }
+          if (desktopPagination) desktopPagination.style.display = '';
+        }
+
+        // Initial state
+        if (isMobileTablet()) {
+          enableMobileView();
+        } else {
+          enableDesktopView();
+        }
+
+        // Handle resize
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+          clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(() => {
+            if (isMobileTablet()) {
+              enableMobileView();
+            } else {
+              enableDesktopView();
+            }
+          }, 100);
+        });
+
+        if (!isMobileTablet()) return;
+
+        // Quick filter pills (client-side)
+        const filterBtns = document.querySelectorAll('.user-filter-btn');
+        const cards = document.querySelectorAll('.user-card');
+        let activeRole = '';
+        let activeStatus = '';
+
+        function applyFilters() {
+          cards.forEach(card => {
+            const matchRole = !activeRole || card.dataset.role === activeRole;
+            const matchStatus = !activeStatus || card.dataset.status === activeStatus;
+            card.style.display = (matchRole && matchStatus) ? 'block' : 'none';
+          });
+        }
+
+        filterBtns.forEach(btn => {
+          btn.addEventListener('click', () => {
+            filterBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if ('role' in btn.dataset) { activeRole = btn.dataset.role; activeStatus = ''; }
+            else if ('status' in btn.dataset) { activeStatus = btn.dataset.status; activeRole = ''; }
+            applyFilters();
+          });
+        });
+
+        // Advanced filter toggle
+        const toggleBtn = document.getElementById('mobileUserFilterToggle');
+        const filterContent = document.getElementById('mobileUserFilterContent');
+        if (toggleBtn && filterContent) {
+          toggleBtn.addEventListener('click', () => {
+            const expanded = filterContent.classList.contains('expanded');
+            filterContent.classList.toggle('expanded', !expanded);
+            toggleBtn.querySelector('.filter-toggle-icon').textContent = expanded ? '▼' : '▲';
+          });
+        }
+
+        // Lazy loading - show 5 initially
+        const allCards = Array.from(cards);
+        let visibleCount = 5;
+        allCards.forEach((card, i) => { if (i >= visibleCount) card.style.display = 'none'; });
+        const indicator = document.getElementById('userLazyIndicator');
+        if (allCards.length > visibleCount && indicator) indicator.style.display = 'block';
+
+        const observer = new IntersectionObserver(entries => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting && visibleCount < allCards.length) {
+              setTimeout(() => {
+                const end = Math.min(visibleCount + 5, allCards.length);
+                for (let i = visibleCount; i < end; i++) allCards[i].style.display = 'block';
+                visibleCount = end;
+                if (visibleCount >= allCards.length && indicator) indicator.style.display = 'none';
+              }, 200);
+            }
+          });
+        }, { rootMargin: '100px', threshold: 0.1 });
+        if (indicator) observer.observe(indicator);
+
+        // Filter bar - acts like sticky using IntersectionObserver
+        (function() {
+          var bar = document.getElementById('mobileFilterBar');
+          var placeholder = document.getElementById('mobileFilterBarPlaceholder');
+          if (!bar || !placeholder) return;
+
+          var isFixed = false;
+
+          function fixBar() {
+            placeholder.style.height = bar.offsetHeight + 'px';
+            bar.style.position = 'fixed';
+            bar.style.top = '60px';
+            bar.style.left = '0';
+            bar.style.right = '0';
+            bar.style.width = '100%';
+            bar.style.zIndex = '200';
+            bar.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+            bar.style.background = '#fff';
+            isFixed = true;
+          }
+
+          function unfixBar() {
+            placeholder.style.height = '0';
+            bar.style.position = '';
+            bar.style.top = '';
+            bar.style.left = '';
+            bar.style.right = '';
+            bar.style.width = '';
+            bar.style.zIndex = '';
+            bar.style.boxShadow = '';
+            bar.style.background = '';
+            isFixed = false;
+          }
+
+          var sentinel = document.createElement('div');
+          sentinel.style.height = '1px';
+          sentinel.style.pointerEvents = 'none';
+          bar.parentNode.insertBefore(sentinel, bar);
+
+          var observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+              if (!entry.isIntersecting) fixBar();
+              else unfixBar();
+            });
+          }, { rootMargin: '-60px 0px 0px 0px', threshold: 0 });
+
+          observer.observe(sentinel);
+
+          if (window.ResizeObserver) {
+            new ResizeObserver(function() {
+              if (isFixed) placeholder.style.height = bar.offsetHeight + 'px';
+            }).observe(bar);
+          }
+        })();
+      })();
+
+      // Poll notifications every 30s
         fetchNotifications();
         setInterval(fetchNotifications, 30000);
       })();
     </script>
+    <script src="{{ url_for('static', filename='js/mobile-nav.js') }}"></script>
     {% include 'logout_modal.html' %}
   </body>
 </html>

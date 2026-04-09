@@ -8,10 +8,16 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/users.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-nav.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}" />
   </head>
   <body>
     <header class="topbar">
+      <button class="hamburger" aria-label="Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
       <div class="brand">SURVEYOR.AI</div>
       <div style="margin-left:auto; margin-right:12px; position:relative;">
         <button id="notifBtn" style="background:none; border:none; width:40px; height:40px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; position:relative;">
@@ -29,6 +35,27 @@
         </div>
       </div>
     </header>
+
+    <nav class="mobile-nav" aria-label="Main navigation">
+        <div class="mobile-nav-overlay"></div>
+        <div class="mobile-nav-content">
+            <div class="mobile-nav-header">
+                <div class="brand">SURVEYOR.AI</div>
+                <button class="mobile-nav-close" aria-label="Close menu">×</button>
+            </div>
+            <div class="mobile-nav-links">
+                <a href="/index">Survey</a>
+                <a href="/map">Map</a>
+                <a href="/users">User management</a>
+                <a href="/defects">Defects Management</a>
+                <a class="active" href="/settings">Settings</a>
+                <a href="/admin/backups">Backup Management</a>
+                <a href="/analytics">Analytics</a>
+                <a href="/activity-logs">Activity Logs</a>
+                <a href="/logout">Log Out</a>
+            </div>
+        </div>
+    </nav>
 
     <div class="layout">
       <aside class="sidebar">
@@ -325,6 +352,7 @@
 
 
     </script>
+    <script src="{{ url_for('static', filename='js/mobile-nav.js') }}"></script>
     {% include 'logout_modal.html' %}
   </body>
 </html>
