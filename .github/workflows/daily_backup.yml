@@ -1,0 +1,20 @@
+name: Daily Incremental Backup
+
+on:
+  schedule:
+    # Run daily at 2:00 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Trigger Daily Backup
+        run: |
+          curl --fail -X POST \
+            -H "X-Backup-Api-Key: ${{ secrets.BACKUP_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"type":"daily"}' \
+            ${{ secrets.APP_BASE_URL }}/api/backups/scheduled

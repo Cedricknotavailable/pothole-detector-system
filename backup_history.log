@@ -3,3 +3,4 @@
 {"user":"testuser1","operation":"import","filename":"backup_20260326_054702.db","timestamp":1774504441,"status":"success"}
 {"user":"testuser1","operation":"import","filename":"backup_20260326_054702.db","timestamp":1774504688,"status":"success"}
 {"user":"testuser1","operation":"import","filename":"backup_20260326_054702.db","timestamp":1774504713,"status":"success"}
+{"user":"testuser1","operation":"export","backup_type":"manual","filename":"manual_20260409_175201.db","timestamp":1775728321,"status":"success"}

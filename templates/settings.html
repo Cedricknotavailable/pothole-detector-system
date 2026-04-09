@@ -139,7 +139,7 @@
                    
                    {% if b2_connected %}
                      <div class="drive-status connected">
-                       <span style="font-size:20px">✅</span> Connected to Backblaze B2
+                       Connected to Backblaze B2
                      </div>
                      <form method="post" action="{{ url_for('b2_disconnect') }}" onsubmit="return confirm('Are you sure you want to disconnect?');">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
@@ -147,7 +147,7 @@
                      </form>
                    {% else %}
                      <div class="drive-status disconnected">
-                       <span style="font-size:20px">⚠️</span> Not Connected
+                       Not Connected
                      </div>
                      <form method="post" action="{{ url_for('b2_connect') }}" class="settings-form">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
@@ -167,43 +167,6 @@
                      </form>
                    {% endif %}
                 </div>
-
-                {% if b2_connected %}
-                <div class="setting-group">
-                  <div class="setting-title">Backup Operations</div>
-                  <div class="setting-desc">Manually backup the database to Backblaze B2 or restore from a previous backup.</div>
-                  
-                  <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
-                    <form method="post" action="{{ url_for('b2_backup') }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-                        <button type="submit" class="action-btn btn-primary">⬆️ Backup Database Now</button>
-                    </form>
-                    
-                    <button type="button" class="action-btn btn-outline" onclick="document.getElementById('restore-section').style.display='block'">⬇️ Restore from Backup</button>
-                  </div>
-
-                  <!-- Restore Section (Hidden by default) -->
-                  <div id="restore-section" style="display:none; margin-top:20px; padding:16px; background:#f8fafc; border-radius:8px;">
-                      <div class="setting-title" style="font-size:14px;">Select Backup to Restore</div>
-                      <div class="setting-desc">Warning: Restoring will overwrite the current database. This action cannot be undone.</div>
-                      
-                      {% if backups %}
-                        <form method="post" action="{{ url_for('b2_restore') }}" onsubmit="return confirm('WARNING: This will overwrite your current database with the selected backup. Continue?');">
-                           <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-                           <select name="file_id" class="control-input" style="width:100%; margin-bottom:12px;" required>
-                              <option value="">-- Select a backup file --</option>
-                              {% for b in backups %}
-                                <option value="{{ b.id }}">{{ b.name }} ({{ b.createdTime }})</option>
-                              {% endfor %}
-                           </select>
-                           <button type="submit" class="action-btn btn-primary" style="background:#b91c1c;">Restore Selected Backup</button>
-                        </form>
-                      {% else %}
-                        <div style="color:#64748b; font-size:13px; padding:8px;">No backups found in B2 bucket.</div>
-                      {% endif %}
-                  </div>
-                </div>
-                {% endif %}
 
               </div>
             </div>
