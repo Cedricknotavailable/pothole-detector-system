@@ -140,7 +140,6 @@
             </div>
 
             <!-- History Section -->
-            {% if history %}
             <section class="backup-section">
               <div class="backup-header">
                 <div class="backup-title-group">
@@ -156,53 +155,131 @@
                 <button class="filter-btn" data-filter="monthly">Monthly</button>
                 <button class="filter-btn" data-filter="manual">Manual</button>
                 <button class="filter-btn" data-filter="restore">Restore</button>
+                <button class="filter-btn" data-filter="export">Export</button>
+                <button class="filter-btn" data-filter="import">Import</button>
+              </div>
+              
+              <!-- Date/Time Search Filter -->
+              <div style="padding: 16px 24px; border-bottom: 1px solid var(--line); background: #f8fafc;">
+                <form method="get" action="{{ url_for('admin_backups_page') }}" style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                  <!-- Date Range -->
+                  <div style="flex: 1; min-width: 200px;">
+                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #475569;">Date From</label>
+                    <input type="date" name="date_from" class="control-input" value="{{ date_from }}" style="width: 100%;">
+                  </div>
+                  <div style="flex: 1; min-width: 200px;">
+                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #475569;">Date To</label>
+                    <input type="date" name="date_to" class="control-input" value="{{ date_to }}" style="width: 100%;">
+                  </div>
+                  
+                  <!-- Time Range -->
+                  <div style="flex: 1; min-width: 150px;">
+                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #475569;">Time From</label>
+                    <input type="time" name="time_from" class="control-input" value="{{ time_from }}" style="width: 100%;">
+                  </div>
+                  <div style="flex: 1; min-width: 150px;">
+                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #475569;">Time To</label>
+                    <input type="time" name="time_to" class="control-input" value="{{ time_to }}" style="width: 100%;">
+                  </div>
+                  
+                  <button type="submit" class="action-btn btn-primary" style="padding: 10px 20px;">Search</button>
+                  <a href="{{ url_for('admin_backups_page') }}" class="action-btn btn-outline" style="padding: 10px 20px; text-decoration: none;">Clear</a>
+                </form>
               </div>
               
               <div class="history-container">
                 <div class="history-list">
-                  {% for item in history %}
-                  <div class="history-item" data-type="{{ item.backup_type }}">
-                    <div class="history-info">
-                      <div class="history-title">
-                        {% if item.operation == 'export' %}Export{% else %}Import{% endif %} 
-                        {% if item.filename %}- {{ item.filename }}{% endif %}
+                  {% if history %}
+                    {% for item in history %}
+                    <div class="history-item" data-type="{{ item.backup_type }}" data-operation="{{ item.operation }}">
+                      <div class="history-info">
+                        <div class="history-title">
+                          {% if item.operation == 'export' %}Export{% else %}Import{% endif %} 
+                          {% if item.filename %}- {{ item.filename }}{% endif %}
+                        </div>
+                        <div class="history-meta">
+                          By {{ item.user }} • {{ item.timestamp_iso }}
+                        </div>
                       </div>
-                      <div class="history-meta">
-                        By {{ item.user }} • {{ item.timestamp_iso }}
-                      </div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <!-- Type Badge -->
-                      <span class="type-badge type-{{ item.backup_type }}">
-                        {% if item.backup_type == 'daily' %}Daily
-                        {% elif item.backup_type == 'monthly' %}Monthly
-                        {% elif item.backup_type == 'manual' %}Manual
-                        {% elif item.backup_type == 'restore' %}Restore
-                        {% else %}Unknown
-                        {% endif %}
-                      </span>
-                      
-                      <!-- Status Badge -->
-                      {% if item.status == 'success' %}
-                        {% if item.get('note') == 'no_new_data' %}
-                          <span class="status-badge success badge-no-new-data">No New Data</span>
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <!-- Type Badge -->
+                        <span class="type-badge type-{{ item.backup_type }}">
+                          {% if item.backup_type == 'daily' %}Daily
+                          {% elif item.backup_type == 'monthly' %}Monthly
+                          {% elif item.backup_type == 'manual' %}Manual
+                          {% elif item.backup_type == 'restore' %}Restore
+                          {% else %}Unknown
+                          {% endif %}
+                        </span>
+                        
+                        <!-- Status Badge -->
+                        {% if item.status == 'success' %}
+                          {% if item.get('note') == 'no_new_data' %}
+                            <span class="status-badge success badge-no-new-data">No New Data</span>
+                          {% else %}
+                            <span class="status-badge success">Success</span>
+                          {% endif %}
                         {% else %}
-                          <span class="status-badge success">Success</span>
+                          <span class="status-badge failure">Failed</span>
                         {% endif %}
-                      {% else %}
-                        <span class="status-badge failure">Failed</span>
-                      {% endif %}
-                      
-                      {% if item.operation == 'export' and item.status == 'success' and item.can_download %}
-                        <a href="{{ url_for('admin_backups_download', filename=item.filename) }}" class="action-btn btn-outline" style="padding:4px 8px; font-size:12px;">Download</a>
+                        
+                        {% if item.operation == 'export' and item.status == 'success' and item.can_download %}
+                          <a href="{{ url_for('admin_backups_download', filename=item.filename) }}" class="action-btn btn-outline" style="padding:4px 8px; font-size:12px;">Download</a>
+                        {% endif %}
+                      </div>
+                    </div>
+                    {% endfor %}
+                  {% else %}
+                    <div style="padding: 40px 24px; text-align: center;">
+                      <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;">📁</div>
+                      <div style="font-size: 16px; font-weight: 600; color: #475569; margin-bottom: 8px;">No backup records found</div>
+                      <div style="font-size: 14px; color: #94a3b8;">
+                        {% if date_from or date_to or time_from or time_to %}
+                          No backups match your search criteria. Try adjusting your filters.
+                        {% else %}
+                          No backup operations have been performed yet.
+                        {% endif %}
+                      </div>
+                      {% if date_from or date_to or time_from or time_to %}
+                        <a href="{{ url_for('admin_backups_page') }}" class="action-btn btn-outline" style="margin-top: 16px; display: inline-flex;">Clear Filters</a>
                       {% endif %}
                     </div>
-                  </div>
-                  {% endfor %}
+                  {% endif %}
                 </div>
               </div>
+              
+              <!-- Pagination -->
+              {% if total_pages > 1 or total_items > 5 %}
+              <div style="padding: 16px 24px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+                <!-- Rows per page selector -->
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <label style="color: #64748b; font-size: 14px;">Rows per page:</label>
+                  <select id="perPageSelect" class="control-input" style="width: auto; padding: 6px 12px; font-size: 13px;">
+                    <option value="5" {% if per_page == 5 %}selected{% endif %}>5</option>
+                    <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                    <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                  </select>
+                  <span style="color: #94a3b8; font-size: 13px;">Showing {{ (page - 1) * per_page + 1 }} - {{ [page * per_page, total_items]|min }} of {{ total_items }}</span>
+                </div>
+                
+                <!-- Page navigation -->
+                {% if total_pages > 1 %}
+                <div style="display: flex; justify-content: center; align-items: center; gap: 8px;">
+                  {% if page > 1 %}
+                    <a href="{{ url_for('admin_backups_page', page=page-1, per_page=per_page, date_from=date_from, date_to=date_to, time_from=time_from, time_to=time_to) }}" class="action-btn btn-outline" style="padding: 6px 12px; font-size: 13px;">Previous</a>
+                  {% endif %}
+                  
+                  <span style="color: #64748b; font-size: 14px; margin: 0 12px;">Page {{ page }} of {{ total_pages }}</span>
+                  
+                  {% if page < total_pages %}
+                    <a href="{{ url_for('admin_backups_page', page=page+1, per_page=per_page, date_from=date_from, date_to=date_to, time_from=time_from, time_to=time_to) }}" class="action-btn btn-outline" style="padding: 6px 12px; font-size: 13px;">Next</a>
+                  {% endif %}
+                </div>
+                {% endif %}
+              </div>
+              {% endif %}
             </section>
-            {% endif %}
 
           </div>
         </div>
@@ -399,14 +476,41 @@
           
           // Filter items
           historyItems.forEach(item => {
-            if (filter === 'all' || item.dataset.type === filter) {
+            const itemType = item.dataset.type;
+            const itemOperation = item.dataset.operation;
+            
+            if (filter === 'all') {
               item.style.display = 'flex';
+            } else if (filter === 'export' || filter === 'import') {
+              // Filter by operation (export/import)
+              if (itemOperation === filter) {
+                item.style.display = 'flex';
+              } else {
+                item.style.display = 'none';
+              }
             } else {
-              item.style.display = 'none';
+              // Filter by type (daily/monthly/manual/restore)
+              if (itemType === filter) {
+                item.style.display = 'flex';
+              } else {
+                item.style.display = 'none';
+              }
             }
           });
         });
       });
+
+      // Per Page Selector
+      const perPageSelect = document.getElementById('perPageSelect');
+      if (perPageSelect) {
+        perPageSelect.addEventListener('change', (e) => {
+          const perPage = e.target.value;
+          const urlParams = new URLSearchParams(window.location.search);
+          urlParams.set('per_page', perPage);
+          urlParams.set('page', '1'); // Reset to first page when changing per_page
+          window.location.search = urlParams.toString();
+        });
+      }
     </script>
 
     <script>
