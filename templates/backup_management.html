@@ -8,10 +8,16 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/users.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-nav.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/backups.css') }}" />
   </head>
   <body>
     <header class="topbar">
+      <button class="hamburger" aria-label="Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
       <div class="brand">SURVEYOR.AI</div>
       <div style="margin-left:auto; margin-right:12px; position:relative;">
         <button id="notifBtn" style="background:none; border:none; width:40px; height:40px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; position:relative;">
@@ -29,6 +35,27 @@
         </div>
       </div>
     </header>
+
+    <nav class="mobile-nav" aria-label="Main navigation">
+        <div class="mobile-nav-overlay"></div>
+        <div class="mobile-nav-content">
+            <div class="mobile-nav-header">
+                <div class="brand">SURVEYOR.AI</div>
+                <button class="mobile-nav-close" aria-label="Close menu">×</button>
+            </div>
+            <div class="mobile-nav-links">
+                <a href="/index">Survey</a>
+                <a href="/map">Map</a>
+                <a href="/users">User management</a>
+                <a href="/defects">Defects Management</a>
+                <a href="/settings">Settings</a>
+                <a class="active" href="/admin/backups">Backup Management</a>
+                <a href="/analytics">Analytics</a>
+                <a href="/activity-logs">Activity Logs</a>
+                <a href="/logout">Log Out</a>
+            </div>
+        </div>
+    </nav>
 
     <div class="layout">
       <aside class="sidebar">
@@ -139,6 +166,47 @@
               </section>
             </div>
 
+            <!-- Mobile Sticky Filter Bar (outside the card) -->
+            <div class="mobile-filter-bar-placeholder" id="mobileFilterBarPlaceholder"></div>
+            <div class="mobile-filter-bar" id="mobileFilterBar">
+              <div class="mobile-filter-buttons">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="daily">Daily</button>
+                <button class="filter-btn" data-filter="monthly">Monthly</button>
+                <button class="filter-btn" data-filter="manual">Manual</button>
+                <button class="filter-btn" data-filter="restore">Restore</button>
+                <button class="filter-btn" data-filter="export">Export</button>
+                <button class="filter-btn" data-filter="import">Import</button>
+                <button class="sort-btn" id="mobileSortBtn" data-order="desc" title="Sort order">↓ Newest</button>
+              </div>
+              <button class="filter-toggle-btn" id="mobileFilterToggleBtn" type="button">
+                <span>Advanced Filters</span>
+                <span class="filter-toggle-icon">▼</span>
+              </button>
+              <div class="filter-search-content" id="mobileFilterSearchContent">
+                <form method="get" action="{{ url_for('admin_backups_page') }}" style="display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;">
+                  <div style="flex: 1 1 100%;">
+                    <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #475569;">Date From</label>
+                    <input type="date" name="date_from" class="control-input" value="{{ date_from }}">
+                  </div>
+                  <div style="flex: 1 1 100%;">
+                    <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #475569;">Date To</label>
+                    <input type="date" name="date_to" class="control-input" value="{{ date_to }}">
+                  </div>
+                  <div style="flex: 1 1 100%;">
+                    <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #475569;">Time From</label>
+                    <input type="time" name="time_from" class="control-input" value="{{ time_from }}">
+                  </div>
+                  <div style="flex: 1 1 100%;">
+                    <label style="display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #475569;">Time To</label>
+                    <input type="time" name="time_to" class="control-input" value="{{ time_to }}">
+                  </div>
+                  <button type="submit" class="action-btn btn-primary" style="width:100%;">Search</button>
+                  <a href="{{ url_for('admin_backups_page') }}" class="action-btn btn-outline" style="width:100%; text-decoration:none; text-align:center;">Clear</a>
+                </form>
+              </div>
+            </div>
+
             <!-- History Section -->
             <section class="backup-section">
               <div class="backup-header">
@@ -148,7 +216,7 @@
                 </div>
               </div>
               
-              <!-- Filter Buttons -->
+              <!-- Filter Buttons (desktop only) -->
               <div class="filter-buttons">
                 <button class="filter-btn active" data-filter="all">All</button>
                 <button class="filter-btn" data-filter="daily">Daily</button>
@@ -157,41 +225,69 @@
                 <button class="filter-btn" data-filter="restore">Restore</button>
                 <button class="filter-btn" data-filter="export">Export</button>
                 <button class="filter-btn" data-filter="import">Import</button>
+                <button class="sort-btn" id="sortBtn" data-order="desc" title="Sort order">↓ Newest</button>
               </div>
               
-              <!-- Date/Time Search Filter -->
-              <div style="padding: 16px 24px; border-bottom: 1px solid var(--line); background: #f8fafc;">
-                <form method="get" action="{{ url_for('admin_backups_page') }}" style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
-                  <!-- Date Range -->
-                  <div style="flex: 1; min-width: 200px;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #475569;">Date From</label>
-                    <input type="date" name="date_from" class="control-input" value="{{ date_from }}" style="width: 100%;">
-                  </div>
-                  <div style="flex: 1; min-width: 200px;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #475569;">Date To</label>
-                    <input type="date" name="date_to" class="control-input" value="{{ date_to }}" style="width: 100%;">
-                  </div>
-                  
-                  <!-- Time Range -->
-                  <div style="flex: 1; min-width: 150px;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #475569;">Time From</label>
-                    <input type="time" name="time_from" class="control-input" value="{{ time_from }}" style="width: 100%;">
-                  </div>
-                  <div style="flex: 1; min-width: 150px;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #475569;">Time To</label>
-                    <input type="time" name="time_to" class="control-input" value="{{ time_to }}" style="width: 100%;">
-                  </div>
-                  
-                  <button type="submit" class="action-btn btn-primary" style="padding: 10px 20px;">Search</button>
-                  <a href="{{ url_for('admin_backups_page') }}" class="action-btn btn-outline" style="padding: 10px 20px; text-decoration: none;">Clear</a>
-                </form>
+              <!-- Date/Time Search Filter (desktop only) -->
+              <div class="filter-search-section">
+                <button class="filter-toggle-btn" id="filterToggleBtn" type="button">
+                  <span>Advanced Filters</span>
+                  <span class="filter-toggle-icon">▼</span>
+                </button>
+                <div class="filter-search-content" id="filterSearchContent">
+                  <form method="get" action="{{ url_for('admin_backups_page') }}" style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                    <!-- Date Range -->
+                    <div style="flex: 1; min-width: 200px;">
+                      <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #475569;">Date From</label>
+                      <input type="date" name="date_from" class="control-input" value="{{ date_from }}" style="width: 100%;">
+                    </div>
+                    <div style="flex: 1; min-width: 200px;">
+                      <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #475569;">Date To</label>
+                      <input type="date" name="date_to" class="control-input" value="{{ date_to }}" style="width: 100%;">
+                    </div>
+                    
+                    <!-- Time Range -->
+                    <div style="flex: 1; min-width: 150px;">
+                      <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #475569;">Time From</label>
+                      <input type="time" name="time_from" class="control-input" value="{{ time_from }}" style="width: 100%;">
+                    </div>
+                    <div style="flex: 1; min-width: 150px;">
+                      <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #475569;">Time To</label>
+                      <input type="time" name="time_to" class="control-input" value="{{ time_to }}" style="width: 100%;">
+                    </div>
+                    
+                    <button type="submit" class="action-btn btn-primary" style="padding: 10px 20px;">Search</button>
+                    <a href="{{ url_for('admin_backups_page') }}" class="action-btn btn-outline" style="padding: 10px 20px; text-decoration: none;">Clear</a>
+                  </form>
+                </div>
               </div>
               
               <div class="history-container">
-                <div class="history-list">
+                <!-- Total count for mobile - shows above history list -->
+                <div class="mobile-total-count" id="mobileTotalCount">
+                  <span style="color: #64748b; font-size: 12px; font-weight: 600;">Total: {{ total_items }} backup{{ 's' if total_items != 1 else '' }}</span>
+                </div>
+                
+                <!-- Rows per page selector - moved above history list -->
+                {% if total_pages > 1 or total_items > 5 %}
+                <div class="pagination-controls-top">
+                  <div style="display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: #f8fafc;">
+                    <label style="color: #64748b; font-size: 13px; font-weight: 600;">Rows:</label>
+                    <select id="perPageSelect" class="control-input" style="width: auto; padding: 6px 10px; font-size: 12px;">
+                      <option value="5" {% if per_page == 5 %}selected{% endif %}>5</option>
+                      <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                      <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                      <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                    </select>
+                    <span style="color: #94a3b8; font-size: 12px;">{{ (page - 1) * per_page + 1 }}-{{ [page * per_page, total_items]|min }} of {{ total_items }}</span>
+                  </div>
+                </div>
+                {% endif %}
+                
+                <div class="history-list" id="historyList">
                   {% if history %}
                     {% for item in history %}
-                    <div class="history-item" data-type="{{ item.backup_type }}" data-operation="{{ item.operation }}">
+                    <div class="history-item lazy-load-item" data-type="{{ item.backup_type }}" data-operation="{{ item.operation }}" data-index="{{ loop.index0 }}" data-timestamp="{{ item.timestamp_iso }}">
                       <div class="history-info">
                         <div class="history-title">
                           {% if item.operation == 'export' %}Export{% else %}Import{% endif %} 
@@ -229,6 +325,14 @@
                       </div>
                     </div>
                     {% endfor %}
+                    
+                    <!-- Loading indicator for lazy load -->
+                    <div class="lazy-load-indicator" id="lazyLoadIndicator" style="display: none;">
+                      <div style="padding: 20px; text-align: center;">
+                        <div class="loading-spinner" style="width: 24px; height: 24px; margin: 0 auto 8px;"></div>
+                        <div style="font-size: 12px; color: #64748b;">Loading more...</div>
+                      </div>
+                    </div>
                   {% else %}
                     <div style="padding: 40px 24px; text-align: center;">
                       <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;">📁</div>
@@ -249,33 +353,16 @@
               </div>
               
               <!-- Pagination -->
-              {% if total_pages > 1 or total_items > 5 %}
-              <div style="padding: 16px 24px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
-                <!-- Rows per page selector -->
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <label style="color: #64748b; font-size: 14px;">Rows per page:</label>
-                  <select id="perPageSelect" class="control-input" style="width: auto; padding: 6px 12px; font-size: 13px;">
-                    <option value="5" {% if per_page == 5 %}selected{% endif %}>5</option>
-                    <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
-                    <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
-                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
-                  </select>
-                  <span style="color: #94a3b8; font-size: 13px;">Showing {{ (page - 1) * per_page + 1 }} - {{ [page * per_page, total_items]|min }} of {{ total_items }}</span>
-                </div>
+              {% if total_pages > 1 %}
+              <div style="padding: 16px 24px; border-top: 1px solid var(--line); display: flex; justify-content: center; align-items: center; gap: 8px;">
+                {% if page > 1 %}
+                  <a href="{{ url_for('admin_backups_page', page=page-1, per_page=per_page, date_from=date_from, date_to=date_to, time_from=time_from, time_to=time_to) }}" class="action-btn btn-outline" style="padding: 6px 12px; font-size: 13px;">Previous</a>
+                {% endif %}
                 
-                <!-- Page navigation -->
-                {% if total_pages > 1 %}
-                <div style="display: flex; justify-content: center; align-items: center; gap: 8px;">
-                  {% if page > 1 %}
-                    <a href="{{ url_for('admin_backups_page', page=page-1, per_page=per_page, date_from=date_from, date_to=date_to, time_from=time_from, time_to=time_to) }}" class="action-btn btn-outline" style="padding: 6px 12px; font-size: 13px;">Previous</a>
-                  {% endif %}
-                  
-                  <span style="color: #64748b; font-size: 14px; margin: 0 12px;">Page {{ page }} of {{ total_pages }}</span>
-                  
-                  {% if page < total_pages %}
-                    <a href="{{ url_for('admin_backups_page', page=page+1, per_page=per_page, date_from=date_from, date_to=date_to, time_from=time_from, time_to=time_to) }}" class="action-btn btn-outline" style="padding: 6px 12px; font-size: 13px;">Next</a>
-                  {% endif %}
-                </div>
+                <span style="color: #64748b; font-size: 14px; margin: 0 12px;">Page {{ page }} of {{ total_pages }}</span>
+                
+                {% if page < total_pages %}
+                  <a href="{{ url_for('admin_backups_page', page=page+1, per_page=per_page, date_from=date_from, date_to=date_to, time_from=time_from, time_to=time_to) }}" class="action-btn btn-outline" style="padding: 6px 12px; font-size: 13px;">Next</a>
                 {% endif %}
               </div>
               {% endif %}
@@ -462,17 +549,18 @@
         });
       }
 
-      // Filter Functionality
-      const filterBtns = document.querySelectorAll('.filter-btn');
+      // Filter Functionality - sync both desktop and mobile filter bars
+      const allFilterBtns = document.querySelectorAll('.filter-btn');
       const historyItems = document.querySelectorAll('.history-item');
       
-      filterBtns.forEach(btn => {
+      allFilterBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-          // Update active state
-          filterBtns.forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          
           const filter = btn.dataset.filter;
+          
+          // Sync active state across all filter buttons (both bars)
+          allFilterBtns.forEach(b => {
+            b.classList.toggle('active', b.dataset.filter === filter);
+          });
           
           // Filter items
           historyItems.forEach(item => {
@@ -480,21 +568,11 @@
             const itemOperation = item.dataset.operation;
             
             if (filter === 'all') {
-              item.style.display = 'flex';
+              item.style.display = '';
             } else if (filter === 'export' || filter === 'import') {
-              // Filter by operation (export/import)
-              if (itemOperation === filter) {
-                item.style.display = 'flex';
-              } else {
-                item.style.display = 'none';
-              }
+              item.style.display = itemOperation === filter ? '' : 'none';
             } else {
-              // Filter by type (daily/monthly/manual/restore)
-              if (itemType === filter) {
-                item.style.display = 'flex';
-              } else {
-                item.style.display = 'none';
-              }
+              item.style.display = itemType === filter ? '' : 'none';
             }
           });
         });
@@ -511,6 +589,191 @@
           window.location.search = urlParams.toString();
         });
       }
+
+      // Sort functionality - Newest/Oldest toggle (synced across both buttons)
+      const sortBtns = document.querySelectorAll('.sort-btn');
+      const historyList = document.getElementById('historyList');
+
+      function sortItems(order) {
+        const items = Array.from(historyList.querySelectorAll('.history-item'));
+        items.sort((a, b) => {
+          const aTime = a.dataset.timestamp || '';
+          const bTime = b.dataset.timestamp || '';
+          return order === 'asc' ? aTime.localeCompare(bTime) : bTime.localeCompare(aTime);
+        });
+        // Re-append in sorted order (keep loading indicator at end)
+        const indicator = document.getElementById('lazyLoadIndicator');
+        items.forEach(item => historyList.appendChild(item));
+        if (indicator) historyList.appendChild(indicator);
+      }
+
+      sortBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const currentOrder = btn.dataset.order;
+          const newOrder = currentOrder === 'desc' ? 'asc' : 'desc';
+          // Sync all sort buttons
+          sortBtns.forEach(b => {
+            b.dataset.order = newOrder;
+            b.textContent = newOrder === 'asc' ? '↑ Oldest' : '↓ Newest';
+          });
+          sortItems(newOrder);
+        });
+      });
+
+      // Mobile filter bar - visible in page, becomes fixed when scrolled past
+      (function() {
+        if (window.innerWidth > 768) return;
+
+        var bar = document.getElementById('mobileFilterBar');
+        var placeholder = document.getElementById('mobileFilterBarPlaceholder');
+        if (!bar || !placeholder) return;
+
+        // Show bar in normal flow initially
+        bar.style.display = 'block';
+
+        var isFixed = false;
+
+        function fixBar() {
+          placeholder.style.height = bar.offsetHeight + 'px';
+          bar.style.position = 'fixed';
+          bar.style.top = '60px';
+          bar.style.left = '0';
+          bar.style.right = '0';
+          bar.style.width = '100%';
+          bar.style.zIndex = '200';
+          bar.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+          bar.style.background = '#fff';
+          isFixed = true;
+        }
+
+        function unfixBar() {
+          placeholder.style.height = '0';
+          bar.style.position = '';
+          bar.style.top = '';
+          bar.style.left = '';
+          bar.style.right = '';
+          bar.style.width = '';
+          bar.style.zIndex = '';
+          bar.style.boxShadow = '';
+          bar.style.background = '';
+          isFixed = false;
+        }
+
+        var sentinel = document.createElement('div');
+        sentinel.style.height = '1px';
+        sentinel.style.pointerEvents = 'none';
+        bar.parentNode.insertBefore(sentinel, bar);
+
+        // Skip initial IntersectionObserver callback
+        var started = false;
+        var observer = new IntersectionObserver(function(entries) {
+          if (!started) return;
+          entries.forEach(function(entry) {
+            if (!entry.isIntersecting) fixBar();
+            else unfixBar();
+          });
+        }, { rootMargin: '-60px 0px 0px 0px', threshold: 0 });
+
+        observer.observe(sentinel);
+
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            started = true;
+          });
+        });
+
+        if (window.ResizeObserver) {
+          new ResizeObserver(function() {
+            if (isFixed) placeholder.style.height = bar.offsetHeight + 'px';
+          }).observe(bar);
+        }
+      })();
+
+      const filterSearchContent = document.getElementById('filterSearchContent');
+      
+      if (filterToggleBtn && filterSearchContent) {
+        filterToggleBtn.addEventListener('click', () => {
+          const isExpanded = filterSearchContent.classList.contains('expanded');
+          filterSearchContent.classList.toggle('expanded', !isExpanded);
+          filterToggleBtn.querySelector('.filter-toggle-icon').textContent = isExpanded ? '▼' : '▲';
+        });
+      }
+
+      // Filter Toggle for Mobile
+      const mobileFilterToggleBtn = document.getElementById('mobileFilterToggleBtn');
+      const mobileFilterSearchContent = document.getElementById('mobileFilterSearchContent');
+      
+      if (mobileFilterToggleBtn && mobileFilterSearchContent) {
+        mobileFilterToggleBtn.addEventListener('click', () => {
+          const isExpanded = mobileFilterSearchContent.classList.contains('expanded');
+          mobileFilterSearchContent.classList.toggle('expanded', !isExpanded);
+          mobileFilterToggleBtn.querySelector('.filter-toggle-icon').textContent = isExpanded ? '▼' : '▲';
+        });
+      }
+
+      // Lazy Loading for Mobile - Show 5 cards initially, load more on scroll
+      (function() {
+        const isMobile = window.innerWidth <= 768;
+        if (!isMobile) return; // Only apply lazy loading on mobile
+        
+        const historyItems = document.querySelectorAll('.lazy-load-item');
+        const lazyLoadIndicator = document.getElementById('lazyLoadIndicator');
+        const historyList = document.getElementById('historyList');
+        
+        if (historyItems.length === 0) return;
+        
+        let visibleCount = 5; // Show 5 items initially
+        const loadMoreCount = 5; // Load 5 more items each time
+        let isLoading = false;
+        
+        // Hide all items initially
+        historyItems.forEach((item, index) => {
+          if (index >= visibleCount) {
+            item.style.display = 'none';
+          }
+        });
+        
+        // Show loading indicator if there are more items
+        if (historyItems.length > visibleCount && lazyLoadIndicator) {
+          lazyLoadIndicator.style.display = 'block';
+        }
+        
+        // Intersection Observer for lazy loading
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting && !isLoading && visibleCount < historyItems.length) {
+              isLoading = true;
+              
+              // Simulate loading delay for better UX
+              setTimeout(() => {
+                const endIndex = Math.min(visibleCount + loadMoreCount, historyItems.length);
+                
+                // Show next batch of items
+                for (let i = visibleCount; i < endIndex; i++) {
+                  historyItems[i].style.display = 'flex';
+                }
+                
+                visibleCount = endIndex;
+                isLoading = false;
+                
+                // Hide loading indicator if all items are shown
+                if (visibleCount >= historyItems.length && lazyLoadIndicator) {
+                  lazyLoadIndicator.style.display = 'none';
+                }
+              }, 300);
+            }
+          });
+        }, {
+          root: null,
+          rootMargin: '100px',
+          threshold: 0.1
+        });
+        
+        // Observe the loading indicator
+        if (lazyLoadIndicator) {
+          observer.observe(lazyLoadIndicator);
+        }
+      })();
     </script>
 
     <script>
@@ -601,6 +864,7 @@
         setInterval(fetchNotifications, 30000);
       })();
     </script>
+    <script src="{{ url_for('static', filename='js/mobile-nav.js') }}"></script>
     {% include 'logout_modal.html' %}
   </body>
 </html>

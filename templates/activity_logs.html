@@ -8,10 +8,16 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/users.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-nav.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/analytics.css') }}" />
   </head>
   <body>
     <header class="topbar">
+      <button class="hamburger" aria-label="Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
       <div class="brand">SURVEYOR.AI</div>
       <div style="margin-left:auto; margin-right:12px; position:relative;">
         <button id="notifBtn" style="background:none; border:none; width:40px; height:40px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; position:relative;">
@@ -29,6 +35,33 @@
         </div>
       </div>
     </header>
+
+    <nav class="mobile-nav" aria-label="Main navigation">
+        <div class="mobile-nav-overlay"></div>
+        <div class="mobile-nav-content">
+            <div class="mobile-nav-header">
+                <div class="brand">SURVEYOR.AI</div>
+                <button class="mobile-nav-close" aria-label="Close menu">×</button>
+            </div>
+            <div class="mobile-nav-links">
+                {% if is_admin %}
+                    <a href="/index">Survey</a>
+                    <a href="/map">Map</a>
+                    <a href="/users">User management</a>
+                    <a href="/defects">Defects Management</a>
+                    <a href="/settings">Settings</a>
+                    <a href="/admin/backups">Backup Management</a>
+                    <a href="/analytics">Analytics</a>
+                    <a class="active" href="/activity-logs">Activity Logs</a>
+                {% else %}
+                    <a href="/map">Map</a>
+                    <a href="/defects">Defects Management</a>
+                    <a href="/settings">Settings</a>
+                {% endif %}
+                <a href="/logout">Log Out</a>
+            </div>
+        </div>
+    </nav>
 
     <div class="layout">
       <aside class="sidebar">
@@ -60,8 +93,59 @@
             </div>
           </div>
 
+          <!-- Mobile Sticky Filter Bar -->
+          <div class="mobile-filter-bar-placeholder" id="mobileFilterBarPlaceholder"></div>
+          <div class="mobile-filter-bar" id="mobileFilterBar">
+            <button class="filter-toggle-btn" id="mobileLogFilterToggle" type="button">
+              <span>Filters</span>
+              <span class="filter-toggle-icon">▼</span>
+            </button>
+            <div class="filter-search-content" id="mobileLogFilterContent">
+              <div style="display:flex; flex-direction:column; gap:10px; padding-bottom:4px;">
+                <div>
+                  <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Action Type</label>
+                  <select id="mobileAuditActionFilter" class="mobile-search-input" style="width:100%; box-sizing:border-box;">
+                    <option value="">All Actions</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Actor</label>
+                  <input type="text" id="mobileAuditActorFilter" class="mobile-search-input" placeholder="Username..." />
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                  <div>
+                    <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">From</label>
+                    <input type="date" id="mobileAuditStartDate" class="mobile-search-input" style="width:100%; box-sizing:border-box;" />
+                  </div>
+                  <div>
+                    <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">To</label>
+                    <input type="date" id="mobileAuditEndDate" class="mobile-search-input" style="width:100%; box-sizing:border-box;" />
+                  </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                  <button type="button" class="card-action-btn" onclick="loadAuditLog(1)" style="padding:9px; font-size:12px; background:#1e90ff; color:#fff; border-color:#1e90ff; text-align:center;">Apply</button>
+                  <button type="button" class="card-action-btn" onclick="clearFilters()" style="padding:9px; font-size:12px; text-align:center;">Clear</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mobile total count -->
+          <div class="mobile-total-count" id="mobileLogTotalCount" style="display:none;">
+            <span style="color:#64748b; font-size:12px; font-weight:600;" id="mobileLogCountText">Loading...</span>
+          </div>
+
+          <!-- Mobile Card List -->
+          <div class="mobile-log-list" id="mobileLogList" style="display:none; padding:0 12px; box-sizing:border-box; width:100%;">
+            <div id="mobileLogCards"></div>
+            <div id="mobileLogLazyIndicator" style="display:none; padding:16px; text-align:center;">
+              <div style="width:24px;height:24px;margin:0 auto 8px;border:3px solid #e2e8f0;border-top-color:#1e90ff;border-radius:50%;animation:spin 1s linear infinite;"></div>
+              <div style="font-size:12px;color:#64748b;">Loading more...</div>
+            </div>
+          </div>
+
           <!-- Filters -->
-          <div class="card controls" style="padding: 14px 16px; margin-top: 16px;">
+          <div class="card controls desktop-filters" style="padding: 14px 16px; margin-top: 16px;">
             <div class="control-row" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;">
               <div class="control">
                 <label class="control-label">Action Type</label>
@@ -136,16 +220,38 @@
       };
 
       let _auditCurrentPage = 1;
+      let _mobileAllCards = [];
+      let _mobileVisibleCount = 0;
+      let _mobileTotalPages = 1;
+      let _mobileLoadedPage = 0;
+      const MOBILE_INITIAL = 10;
+      const MOBILE_LOAD_MORE = 10;
+      function isMobileTablet() { return window.innerWidth < 1024; }
+
+      // Sync filter values between desktop and mobile inputs
+      function getFilterValues() {
+        if (isMobileTablet()) {
+          return {
+            action: document.getElementById('mobileAuditActionFilter').value,
+            actor:  document.getElementById('mobileAuditActorFilter').value,
+            start:  document.getElementById('mobileAuditStartDate').value,
+            end:    document.getElementById('mobileAuditEndDate').value,
+          };
+        }
+        return {
+          action: document.getElementById('auditActionFilter').value,
+          actor:  document.getElementById('auditActorFilter').value,
+          start:  document.getElementById('auditStartDate').value,
+          end:    document.getElementById('auditEndDate').value,
+        };
+      }
 
       // ─── Load Activity Log ────────────────────────────────────────────────────
       async function loadAuditLog(page) {
         page = page || _auditCurrentPage;
         _auditCurrentPage = page;
 
-        const action = document.getElementById('auditActionFilter').value;
-        const actor  = document.getElementById('auditActorFilter').value;
-        const start  = document.getElementById('auditStartDate').value;
-        const end    = document.getElementById('auditEndDate').value;
+        const { action, actor, start, end } = getFilterValues();
 
         const params = new URLSearchParams({ page });
         if (action) params.set('action', action);
@@ -155,9 +261,20 @@
 
         const tbody = document.getElementById('auditTableBody');
         const range = document.getElementById('auditRange');
+        const mobileCards = document.getElementById('mobileLogCards');
+        const mobileCount = document.getElementById('mobileLogCountText');
+        const lazyIndicator = document.getElementById('mobileLogLazyIndicator');
+
+        // Reset mobile lazy state on new load
+        _mobileAllCards = [];
+        _mobileVisibleCount = 0;
+        _mobileLoadedPage = 0;
+
         tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading...</td></tr>';
         range.textContent = 'Loading...';
-
+        if (mobileCards) mobileCards.innerHTML = '<div style="padding:20px; text-align:center; color:#64748b; font-size:13px;">Loading...</div>';
+        if (mobileCount) mobileCount.textContent = 'Loading...';
+        if (lazyIndicator) lazyIndicator.style.display = 'none';
         try {
           const res = await fetch('/api/audit-log?' + params.toString());
           if (!res.ok) {
@@ -172,23 +289,29 @@
             return;
           }
 
-          // Refresh action type dropdown
+          // Refresh action type dropdowns (both desktop and mobile)
           if (data.action_types && data.action_types.length > 0) {
-            const sel = document.getElementById('auditActionFilter');
-            const cur = sel.value;
-            sel.innerHTML = '<option value="">All Actions</option>';
-            data.action_types.forEach(a => {
-              const opt = document.createElement('option');
-              opt.value = a; opt.textContent = a.replace(/_/g, ' ');
-              sel.appendChild(opt);
+            ['auditActionFilter', 'mobileAuditActionFilter'].forEach(id => {
+              const sel = document.getElementById(id);
+              if (!sel) return;
+              const cur = sel.value;
+              sel.innerHTML = '<option value="">All Actions</option>';
+              data.action_types.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a; opt.textContent = a.replace(/_/g, ' ');
+                sel.appendChild(opt);
+              });
+              sel.value = cur;
             });
-            sel.value = cur;
           }
 
           if (!data.items || data.items.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="empty">No activity log entries found.</td></tr>';
             range.textContent = 'No entries found';
+            if (mobileCards) mobileCards.innerHTML = '<div style="padding:32px; text-align:center; color:#64748b; font-size:14px;">No activity log entries found.</div>';
+            if (mobileCount) mobileCount.textContent = 'No entries found';
           } else {
+            // Desktop table rows
             tbody.innerHTML = data.items.map(e => {
               const cat      = ACTION_CATEGORIES[e.action] || 'settings';
               const badgeCls = CATEGORY_BADGE[cat] || '';
@@ -208,10 +331,49 @@
               </tr>`;
             }).join('');
 
+            // Mobile cards with lazy loading
+            if (mobileCards) {
+              function buildCardHTML(e) {
+                const cat      = ACTION_CATEGORIES[e.action] || 'settings';
+                const badgeCls = CATEGORY_BADGE[cat] || '';
+                const resource = e.resource_type !== '—'
+                  ? `${e.resource_type}${e.resource_id ? ' #' + e.resource_id : ''}`
+                  : '';
+                return `<div class="log-card">
+                  <div class="user-card-header">
+                    <div style="min-width:0; flex:1; overflow:hidden;">
+                      <div class="user-card-name" style="font-size:13px;">
+                        <span class="audit-badge ${badgeCls}" style="font-size:10px;">${e.action.replace(/_/g, ' ')}</span>
+                      </div>
+                      <div class="user-card-email">${e.actor_username} • ${e.timestamp_iso}</div>
+                    </div>
+                  </div>
+                  <div style="font-size:11px; color:#475569; margin-top:6px;">
+                    ${resource ? '<span style="background:#f1f5f9; padding:2px 6px; border-radius:4px; margin-right:4px;">' + resource + '</span>' : ''}
+                    ${e.ip_address !== '—' ? '<span style="color:#94a3b8;">' + e.ip_address + '</span>' : ''}
+                  </div>
+                </div>`;
+              }
+
+              _mobileAllCards = data.items.map(buildCardHTML);
+              _mobileTotalPages = data.pages;
+              _mobileLoadedPage = data.page;
+
+              // Show first MOBILE_INITIAL cards
+              mobileCards.innerHTML = _mobileAllCards.slice(0, MOBILE_INITIAL).join('');
+              _mobileVisibleCount = Math.min(MOBILE_INITIAL, _mobileAllCards.length);
+
+              // Show lazy indicator if more cards or more pages
+              if (lazyIndicator) {
+                lazyIndicator.style.display = (_mobileVisibleCount < _mobileAllCards.length || _mobileLoadedPage < _mobileTotalPages) ? 'block' : 'none';
+              }
+            }
+
             // Update range display
-            const start = ((data.page - 1) * 20) + 1;
-            const end = Math.min(data.total, data.page * 20);
-            range.textContent = `Showing ${start}–${end} of ${data.total}`;
+            const startNum = ((data.page - 1) * 20) + 1;
+            const endNum = Math.min(data.total, data.page * 20);
+            range.textContent = `Showing ${startNum}–${endNum} of ${data.total}`;
+            if (mobileCount) mobileCount.textContent = `Total: ${data.total} log${data.total !== 1 ? 's' : ''}`;
           }
 
           renderAuditPagination(data.page, data.pages, data.total);
@@ -221,6 +383,103 @@
           console.error('Activity log error:', err);
         }
       }
+
+      // ─── Render Mobile Pagination ─────────────────────────────────────────────
+      function renderMobileLogPagination(page, pages) {
+        // No-op: replaced by lazy loading
+      }
+
+      // ─── Mobile Lazy Loading ──────────────────────────────────────────────────
+      (function() {
+        var lazyIndicator = document.getElementById('mobileLogLazyIndicator');
+        var mobileCards = document.getElementById('mobileLogCards');
+        if (!lazyIndicator || !mobileCards) return;
+
+        var isLoading = false;
+
+        async function loadMoreCards() {
+          if (isLoading) return;
+
+          // First show remaining already-loaded cards
+          if (_mobileVisibleCount < _mobileAllCards.length) {
+            isLoading = true;
+            setTimeout(function() {
+              var end = Math.min(_mobileVisibleCount + MOBILE_LOAD_MORE, _mobileAllCards.length);
+              mobileCards.innerHTML += _mobileAllCards.slice(_mobileVisibleCount, end).join('');
+              _mobileVisibleCount = end;
+              isLoading = false;
+              if (_mobileVisibleCount >= _mobileAllCards.length && _mobileLoadedPage >= _mobileTotalPages) {
+                lazyIndicator.style.display = 'none';
+              }
+            }, 200);
+            return;
+          }
+
+          // Fetch next page from API
+          if (_mobileLoadedPage >= _mobileTotalPages) {
+            lazyIndicator.style.display = 'none';
+            return;
+          }
+
+          isLoading = true;
+          const nextPage = _mobileLoadedPage + 1;
+          const { action, actor, start, end } = getFilterValues();
+          const params = new URLSearchParams({ page: nextPage });
+          if (action) params.set('action', action);
+          if (actor)  params.set('actor', actor);
+          if (start)  params.set('start_date', start);
+          if (end)    params.set('end_date', end);
+
+          try {
+            const res = await fetch('/api/audit-log?' + params.toString());
+            const data = await res.json();
+            if (data.items && data.items.length > 0) {
+              const newCards = data.items.map(function(e) {
+                const cat      = ACTION_CATEGORIES[e.action] || 'settings';
+                const badgeCls = CATEGORY_BADGE[cat] || '';
+                const resource = e.resource_type !== '—'
+                  ? `${e.resource_type}${e.resource_id ? ' #' + e.resource_id : ''}`
+                  : '';
+                return `<div class="log-card">
+                  <div class="user-card-header">
+                    <div style="min-width:0; flex:1; overflow:hidden;">
+                      <div class="user-card-name" style="font-size:13px;">
+                        <span class="audit-badge ${badgeCls}" style="font-size:10px;">${e.action.replace(/_/g, ' ')}</span>
+                      </div>
+                      <div class="user-card-email">${e.actor_username} • ${e.timestamp_iso}</div>
+                    </div>
+                  </div>
+                  <div style="font-size:11px; color:#475569; margin-top:6px;">
+                    ${resource ? '<span style="background:#f1f5f9; padding:2px 6px; border-radius:4px; margin-right:4px;">' + resource + '</span>' : ''}
+                    ${e.ip_address !== '—' ? '<span style="color:#94a3b8;">' + e.ip_address + '</span>' : ''}
+                  </div>
+                </div>`;
+              });
+              _mobileAllCards = _mobileAllCards.concat(newCards);
+              _mobileLoadedPage = data.page;
+              _mobileTotalPages = data.pages;
+
+              // Show the newly loaded cards
+              var end2 = Math.min(_mobileVisibleCount + MOBILE_LOAD_MORE, _mobileAllCards.length);
+              mobileCards.innerHTML += _mobileAllCards.slice(_mobileVisibleCount, end2).join('');
+              _mobileVisibleCount = end2;
+            }
+          } catch(e) { console.error(e); }
+
+          isLoading = false;
+          if (_mobileVisibleCount >= _mobileAllCards.length && _mobileLoadedPage >= _mobileTotalPages) {
+            lazyIndicator.style.display = 'none';
+          }
+        }
+
+        var observer = new IntersectionObserver(function(entries) {
+          entries.forEach(function(entry) {
+            if (entry.isIntersecting) loadMoreCards();
+          });
+        }, { rootMargin: '100px', threshold: 0.1 });
+
+        observer.observe(lazyIndicator);
+      })();
 
       // ─── Render Pagination ────────────────────────────────────────────────────
       function renderAuditPagination(page, pages, total) {
@@ -249,10 +508,9 @@
 
       // ─── Clear Filters ────────────────────────────────────────────────────────
       function clearFilters() {
-        document.getElementById('auditActionFilter').value = '';
-        document.getElementById('auditActorFilter').value = '';
-        document.getElementById('auditStartDate').value = '';
-        document.getElementById('auditEndDate').value = '';
+        ['auditActionFilter','auditActorFilter','auditStartDate','auditEndDate',
+         'mobileAuditActionFilter','mobileAuditActorFilter','mobileAuditStartDate','mobileAuditEndDate']
+          .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         loadAuditLog(1);
       }
 
@@ -290,6 +548,107 @@
 
       // ─── Initial Load ─────────────────────────────────────────────────────────
       loadAuditLog(1);
+
+      // ─── Mobile/Tablet View Toggle ────────────────────────────────────────────
+      (function() {
+        var mobileList = document.getElementById('mobileLogList');
+        var mobileTotalCount = document.getElementById('mobileLogTotalCount');
+        var mobileFilterBar = document.getElementById('mobileFilterBar');
+        var desktopFilters = document.querySelector('.desktop-filters');
+        var desktopTableCard = document.querySelector('.card .table-wrap');
+        var desktopPagination = document.querySelector('.pagination');
+
+        function enableMobileView() {
+          if (mobileTotalCount) mobileTotalCount.style.display = 'block';
+          if (mobileList) mobileList.style.display = 'block';
+          if (mobileFilterBar) mobileFilterBar.style.display = 'block';
+          if (desktopFilters) desktopFilters.style.display = 'none';
+          if (desktopTableCard) desktopTableCard.closest('.card').style.display = 'none';
+          if (desktopPagination) desktopPagination.style.display = 'none';
+        }
+
+        function enableDesktopView() {
+          if (mobileTotalCount) mobileTotalCount.style.display = 'none';
+          if (mobileList) mobileList.style.display = 'none';
+          if (mobileFilterBar) mobileFilterBar.style.display = 'none';
+          if (desktopFilters) desktopFilters.style.display = '';
+          if (desktopTableCard) { desktopTableCard.closest('.card').style.display = ''; desktopTableCard.style.display = ''; }
+          if (desktopPagination) desktopPagination.style.display = '';
+        }
+
+        if (isMobileTablet()) enableMobileView(); else enableDesktopView();
+
+        var resizeTimer;
+        window.addEventListener('resize', function() {
+          clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(function() {
+            if (isMobileTablet()) enableMobileView(); else enableDesktopView();
+          }, 100);
+        });
+
+        // Advanced filter toggle
+        var toggleBtn = document.getElementById('mobileLogFilterToggle');
+        var filterContent = document.getElementById('mobileLogFilterContent');
+        if (toggleBtn && filterContent) {
+          toggleBtn.addEventListener('click', function() {
+            var expanded = filterContent.classList.contains('expanded');
+            filterContent.classList.toggle('expanded', !expanded);
+            toggleBtn.querySelector('.filter-toggle-icon').textContent = expanded ? '▼' : '▲';
+          });
+        }
+
+        // Sticky filter bar using IntersectionObserver
+        var bar = document.getElementById('mobileFilterBar');
+        var placeholder = document.getElementById('mobileFilterBarPlaceholder');
+        if (bar && placeholder) {
+          var isFixed = false;
+
+          function fixBar() {
+            placeholder.style.height = bar.offsetHeight + 'px';
+            bar.style.position = 'fixed';
+            bar.style.top = '60px';
+            bar.style.left = '0';
+            bar.style.right = '0';
+            bar.style.width = '100%';
+            bar.style.zIndex = '200';
+            bar.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+            bar.style.background = '#fff';
+            isFixed = true;
+          }
+
+          function unfixBar() {
+            placeholder.style.height = '0';
+            bar.style.position = '';
+            bar.style.top = '';
+            bar.style.left = '';
+            bar.style.right = '';
+            bar.style.width = '';
+            bar.style.zIndex = '';
+            bar.style.boxShadow = '';
+            bar.style.background = '';
+            isFixed = false;
+          }
+
+          var sentinel = document.createElement('div');
+          sentinel.style.height = '1px';
+          sentinel.style.pointerEvents = 'none';
+          bar.parentNode.insertBefore(sentinel, bar);
+
+          var stickyObserver = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+              if (!entry.isIntersecting) fixBar(); else unfixBar();
+            });
+          }, { rootMargin: '-60px 0px 0px 0px', threshold: 0 });
+
+          stickyObserver.observe(sentinel);
+
+          if (window.ResizeObserver) {
+            new ResizeObserver(function() {
+              if (isFixed) placeholder.style.height = bar.offsetHeight + 'px';
+            }).observe(bar);
+          }
+        }
+      })();
 
       // ─── Notifications ────────────────────────────────────────────────────────
       (function () {
@@ -350,6 +709,7 @@
         setInterval(fetchNotifications, 30000);
       })();
     </script>
+    <script src="{{ url_for('static', filename='js/mobile-nav.js') }}"></script>
     {% include 'logout_modal.html' %}
   </body>
 </html>

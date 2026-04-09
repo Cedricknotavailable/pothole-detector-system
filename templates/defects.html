@@ -8,10 +8,16 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/users.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-nav.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/defects.css') }}" />
   </head>
   <body>
     <header class="topbar">
+      <button class="hamburger" aria-label="Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
       <div class="brand">SURVEYOR.AI</div>
         <div style="margin-left:auto; margin-right:12px; position:relative;">
           <button id="notifBtn" style="background:none; border:none; width:40px; height:40px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; position:relative;">
@@ -29,6 +35,33 @@
           </div>
         </div>
     </header>
+
+    <nav class="mobile-nav" aria-label="Main navigation">
+        <div class="mobile-nav-overlay"></div>
+        <div class="mobile-nav-content">
+            <div class="mobile-nav-header">
+                <div class="brand">SURVEYOR.AI</div>
+                <button class="mobile-nav-close" aria-label="Close menu">×</button>
+            </div>
+            <div class="mobile-nav-links">
+                {% if is_admin %}
+                    <a href="/index">Survey</a>
+                    <a href="/map">Map</a>
+                    <a href="/users">User management</a>
+                    <a class="active" href="/defects">Defects Management</a>
+                    <a href="/settings">Settings</a>
+                    <a href="/admin/backups">Backup Management</a>
+                    <a href="/analytics">Analytics</a>
+                    <a href="/activity-logs">Activity Logs</a>
+                {% else %}
+                    <a href="/map">Map</a>
+                    <a class="active" href="/defects">Defects Management</a>
+                    <a href="/settings">Settings</a>
+                {% endif %}
+                <a href="/logout">Log Out</a>
+            </div>
+        </div>
+    </nav>
 
     <div class="layout">
       <aside class="sidebar">
@@ -58,7 +91,139 @@
               <div class="title">Defects Management</div>
               <div class="subtitle">Registry of user reports and system detections</div>
             </div>
-            <div class="count">Showing {{ start }}–{{ end }} of {{ total }}</div>
+            <div class="count mobile-hide">Showing {{ start }}–{{ end }} of {{ total }}</div>
+          </div>
+
+          <!-- Mobile Sticky Filter Bar -->
+          <div class="mobile-filter-bar-placeholder" id="mobileFilterBarPlaceholder"></div>
+          <div class="mobile-filter-bar" id="mobileFilterBar">
+            <div class="mobile-filter-buttons">
+              <button class="defect-filter-btn active" data-type="">All</button>
+              <button class="defect-filter-btn" data-type="pothole">Pothole</button>
+              <button class="defect-filter-btn" data-type="crack">Crack</button>
+              <button class="defect-filter-btn" data-status="open">Open</button>
+              <button class="defect-filter-btn" data-status="fixed">Fixed</button>
+              <button class="defect-filter-btn" data-source="user">User</button>
+              <button class="defect-filter-btn" data-source="system">System</button>
+            </div>
+            <button class="filter-toggle-btn" id="mobileDefectFilterToggle" type="button">
+              <span>Advanced Filters</span>
+              <span class="filter-toggle-icon">▼</span>
+            </button>
+            <div class="filter-search-content" id="mobileDefectFilterContent">
+              <form method="get" action="{{ url_for('defects_page') }}" style="display:flex; flex-direction:column; gap:10px; padding-bottom:4px;">
+                <div>
+                  <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Search</label>
+                  <input type="text" name="q" value="{{ q or '' }}" class="mobile-search-input" placeholder="Type, submitted by, coordinates..." />
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                  <div>
+                    <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Category</label>
+                    <select name="type" class="mobile-search-input" style="width:100%; box-sizing:border-box;">
+                      <option value="" {% if not type_filter %}selected{% endif %}>All</option>
+                      <option value="pothole" {% if type_filter == 'pothole' %}selected{% endif %}>Pothole</option>
+                      <option value="crack" {% if type_filter == 'crack' %}selected{% endif %}>Crack</option>
+                      {% if is_admin_or_moderator %}<option value="unsure" {% if type_filter == 'unsure' %}selected{% endif %}>Unsure</option>{% endif %}
+                    </select>
+                  </div>
+                  <div>
+                    <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Status</label>
+                    <select name="status" class="mobile-search-input" style="width:100%; box-sizing:border-box;">
+                      <option value="" {% if not status_filter %}selected{% endif %}>All</option>
+                      <option value="open" {% if status_filter == 'open' %}selected{% endif %}>Open</option>
+                      <option value="fixed" {% if status_filter == 'fixed' %}selected{% endif %}>Fixed</option>
+                    </select>
+                  </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                  <div>
+                    <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Source</label>
+                    <select name="source" class="mobile-search-input" style="width:100%; box-sizing:border-box;">
+                      <option value="" {% if not source_filter %}selected{% endif %}>All</option>
+                      <option value="user" {% if source_filter == 'user' %}selected{% endif %}>User</option>
+                      <option value="system" {% if source_filter == 'system' %}selected{% endif %}>System</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Sort</label>
+                    <select name="sort" class="mobile-search-input" style="width:100%; box-sizing:border-box;">
+                      <option value="date_desc" {% if sort == 'date_desc' %}selected{% endif %}>Newest</option>
+                      <option value="date_asc" {% if sort == 'date_asc' %}selected{% endif %}>Oldest</option>
+                      <option value="type" {% if sort == 'type' %}selected{% endif %}>Type</option>
+                      <option value="status" {% if sort == 'status' %}selected{% endif %}>Status</option>
+                    </select>
+                  </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                  <div>
+                    <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">From</label>
+                    <input type="date" name="start_date" value="{{ start_date or '' }}" class="mobile-search-input" style="width:100%; box-sizing:border-box;" />
+                  </div>
+                  <div>
+                    <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">To</label>
+                    <input type="date" name="end_date" value="{{ end_date or '' }}" class="mobile-search-input" style="width:100%; box-sizing:border-box;" />
+                  </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                  <button type="submit" class="card-action-btn" style="padding:9px; font-size:12px; background:#1e90ff; color:#fff; border-color:#1e90ff; text-align:center;">Apply</button>
+                  <a href="{{ url_for('defects_page') }}" class="card-action-btn" style="padding:9px; font-size:12px; text-align:center; text-decoration:none; display:block; box-sizing:border-box;">Clear</a>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Mobile total count -->
+          <div class="mobile-total-count" id="mobileDefectTotalCount" style="display:none;">
+            <span style="color:#64748b; font-size:12px; font-weight:600;">Total: {{ total }} defect{{ 's' if total != 1 else '' }}</span>
+          </div>
+
+          <!-- Mobile Card List -->
+          <div class="mobile-defect-list" id="mobileDefectList" style="display:none; padding:0 12px; box-sizing:border-box; width:100%;">
+            {% if items and items|length > 0 %}
+              {% for item in items %}
+              <div class="defect-card"
+                   data-type="{{ item.type|lower }}"
+                   data-status="{{ 'fixed' if item.is_fixed else 'open' }}"
+                   data-source="{{ item.source|lower }}">
+                <div class="user-card-header">
+                  <div style="min-width:0; flex:1; overflow:hidden;">
+                    <div class="user-card-name">
+                      {% if 'pothole' in (item.type|lower) %}Pothole
+                      {% elif 'crack' in (item.type|lower) %}Road Crack
+                      {% else %}{{ item.type }}{% endif %}
+                      <span style="font-size:11px; color:#94a3b8; font-weight:400;">#{{ item.id }}</span>
+                    </div>
+                    <div class="user-card-email">
+                      {{ "%.4f"|format(item.lat) }}, {{ "%.4f"|format(item.lon) }} •
+                      {{ item.submitted_by or 'System' }}
+                    </div>
+                  </div>
+                  <div style="display:flex; gap:4px; flex-shrink:0; align-items:center;">
+                    {% if item.is_fixed %}
+                      <span class="badge badge--active" style="font-size:10px; padding:2px 7px;">Fixed</span>
+                    {% else %}
+                      <span class="badge badge--suspended" style="font-size:10px; padding:2px 7px;">Open</span>
+                    {% endif %}
+                    {% if item.source == 'system' %}
+                      <span class="badge badge--active" style="font-size:10px; padding:2px 7px;">System</span>
+                    {% else %}
+                      <span class="badge badge--user" style="font-size:10px; padding:2px 7px;">User</span>
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="user-card-meta">
+                  <span class="user-card-role">{{ item.created_at_iso or '—' }}</span>
+                  <a href="{{ url_for('map_page', lat=item.lat, lng=item.lon) }}" class="card-action-btn" style="font-size:11px; padding:3px 8px; text-decoration:none;">View Map</a>
+                </div>
+              </div>
+              {% endfor %}
+              <div id="defectLazyIndicator" style="display:none; padding:16px; text-align:center;">
+                <div style="width:24px;height:24px;margin:0 auto 8px;border:3px solid #e2e8f0;border-top-color:#1e90ff;border-radius:50%;animation:spin 1s linear infinite;"></div>
+                <div style="font-size:12px;color:#64748b;">Loading more...</div>
+              </div>
+            {% else %}
+              <div style="padding:32px; text-align:center; color:#64748b; font-size:14px;">No defects found.</div>
+            {% endif %}
           </div>
 
           <div class="controls card filters-container">
@@ -262,6 +427,158 @@
     </div>
 
     <script>
+      // Mobile/Tablet defects - cards ≤1023px, table ≥1024px
+      (function() {
+        function isMobileTablet() { return window.innerWidth < 1024; }
+
+        var mobileList = document.getElementById('mobileDefectList');
+        var mobileTotalCount = document.getElementById('mobileDefectTotalCount');
+        var mobileFilterBar = document.getElementById('mobileFilterBar');
+        var desktopControls = document.querySelector('.controls.card');
+        var desktopTableCard = document.querySelector('.card .table-wrap');
+        var desktopPagination = document.querySelector('.pagination');
+
+        function enableMobileView() {
+          if (mobileTotalCount) mobileTotalCount.style.display = 'block';
+          if (mobileList) mobileList.style.display = 'block';
+          if (mobileFilterBar) mobileFilterBar.style.display = 'block';
+          if (desktopControls) desktopControls.style.display = 'none';
+          if (desktopTableCard) desktopTableCard.closest('.card').style.display = 'none';
+          if (desktopPagination) desktopPagination.style.display = 'none';
+        }
+
+        function enableDesktopView() {
+          if (mobileTotalCount) mobileTotalCount.style.display = 'none';
+          if (mobileList) mobileList.style.display = 'none';
+          if (mobileFilterBar) mobileFilterBar.style.display = 'none';
+          if (desktopControls) desktopControls.style.display = '';
+          if (desktopTableCard) { desktopTableCard.closest('.card').style.display = ''; desktopTableCard.style.display = ''; }
+          if (desktopPagination) desktopPagination.style.display = '';
+        }
+
+        if (isMobileTablet()) enableMobileView(); else enableDesktopView();
+
+        var resizeTimer;
+        window.addEventListener('resize', function() {
+          clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(function() {
+            if (isMobileTablet()) enableMobileView(); else enableDesktopView();
+          }, 100);
+        });
+
+        if (!isMobileTablet()) return;
+
+        // Quick filter pills
+        var filterBtns = document.querySelectorAll('.defect-filter-btn');
+        var cards = document.querySelectorAll('.defect-card');
+        var activeType = '', activeStatus = '', activeSource = '';
+
+        function applyFilters() {
+          cards.forEach(function(card) {
+            var matchType = !activeType || card.dataset.type.indexOf(activeType) !== -1;
+            var matchStatus = !activeStatus || card.dataset.status === activeStatus;
+            var matchSource = !activeSource || card.dataset.source === activeSource;
+            card.style.display = (matchType && matchStatus && matchSource) ? 'block' : 'none';
+          });
+        }
+
+        filterBtns.forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            filterBtns.forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            if ('type' in btn.dataset) { activeType = btn.dataset.type; activeStatus = ''; activeSource = ''; }
+            else if ('status' in btn.dataset) { activeStatus = btn.dataset.status; activeType = ''; activeSource = ''; }
+            else if ('source' in btn.dataset) { activeSource = btn.dataset.source; activeType = ''; activeStatus = ''; }
+            applyFilters();
+          });
+        });
+
+        // Advanced filter toggle
+        var toggleBtn = document.getElementById('mobileDefectFilterToggle');
+        var filterContent = document.getElementById('mobileDefectFilterContent');
+        if (toggleBtn && filterContent) {
+          toggleBtn.addEventListener('click', function() {
+            var expanded = filterContent.classList.contains('expanded');
+            filterContent.classList.toggle('expanded', !expanded);
+            toggleBtn.querySelector('.filter-toggle-icon').textContent = expanded ? '▼' : '▲';
+          });
+        }
+
+        // Lazy loading
+        var allCards = Array.from(cards);
+        var visibleCount = 5;
+        allCards.forEach(function(card, i) { if (i >= visibleCount) card.style.display = 'none'; });
+        var indicator = document.getElementById('defectLazyIndicator');
+        if (allCards.length > visibleCount && indicator) indicator.style.display = 'block';
+
+        var observer = new IntersectionObserver(function(entries) {
+          entries.forEach(function(entry) {
+            if (entry.isIntersecting && visibleCount < allCards.length) {
+              setTimeout(function() {
+                var end = Math.min(visibleCount + 5, allCards.length);
+                for (var i = visibleCount; i < end; i++) allCards[i].style.display = 'block';
+                visibleCount = end;
+                if (visibleCount >= allCards.length && indicator) indicator.style.display = 'none';
+              }, 200);
+            }
+          });
+        }, { rootMargin: '100px', threshold: 0.1 });
+        if (indicator) observer.observe(indicator);
+
+        // Sticky filter bar using IntersectionObserver
+        var bar = document.getElementById('mobileFilterBar');
+        var placeholder = document.getElementById('mobileFilterBarPlaceholder');
+        if (bar && placeholder) {
+          var isFixed = false;
+
+          function fixBar() {
+            placeholder.style.height = bar.offsetHeight + 'px';
+            bar.style.position = 'fixed';
+            bar.style.top = '60px';
+            bar.style.left = '0';
+            bar.style.right = '0';
+            bar.style.width = '100%';
+            bar.style.zIndex = '200';
+            bar.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+            bar.style.background = '#fff';
+            isFixed = true;
+          }
+
+          function unfixBar() {
+            placeholder.style.height = '0';
+            bar.style.position = '';
+            bar.style.top = '';
+            bar.style.left = '';
+            bar.style.right = '';
+            bar.style.width = '';
+            bar.style.zIndex = '';
+            bar.style.boxShadow = '';
+            bar.style.background = '';
+            isFixed = false;
+          }
+
+          var sentinel = document.createElement('div');
+          sentinel.style.height = '1px';
+          sentinel.style.pointerEvents = 'none';
+          bar.parentNode.insertBefore(sentinel, bar);
+
+          var stickyObserver = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+              if (!entry.isIntersecting) fixBar(); else unfixBar();
+            });
+          }, { rootMargin: '-60px 0px 0px 0px', threshold: 0 });
+
+          stickyObserver.observe(sentinel);
+
+          if (window.ResizeObserver) {
+            new ResizeObserver(function() {
+              if (isFixed) placeholder.style.height = bar.offsetHeight + 'px';
+            }).observe(bar);
+          }
+        }
+      })();
+    </script>
+    <script>
       function toggleUnsureSubfilter() {
         const typeSelect = document.getElementById('type');
         const unsureContainer = document.getElementById('unsureContainer');
@@ -352,6 +669,7 @@
         setInterval(fetchNotifications, 30000);
       })();
     </script>
+    <script src="{{ url_for('static', filename='js/mobile-nav.js') }}"></script>
     {% include 'logout_modal.html' %}
   </body>
 </html>
