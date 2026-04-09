@@ -58,76 +58,86 @@
             
             {% if success_msg %}
               <div class="status-msg status-success">
-                <span>✅</span> {{ success_msg }}
+                {{ success_msg }}
               </div>
             {% endif %}
             
             {% if error_msg %}
               <div class="status-msg status-error">
-                <span>⚠️</span> {{ error_msg }}
+                {{ error_msg }}
               </div>
             {% endif %}
 
-            <!-- Export Section -->
-            <section class="backup-section">
-              <div class="backup-header">
-                <div class="backup-title-group">
-                  <h2 class="backup-title">Export Database</h2>
-                  <p class="backup-desc">Create a downloadable backup of the current system database.</p>
+            <!-- Export and Restore Panels (Side by Side) -->
+            <div class="backup-panels">
+              <!-- Export Section -->
+              <section class="backup-section">
+                <div class="backup-header">
+                  <div class="backup-title-group">
+                    <h2 class="backup-title">Export Database</h2>
+                    <p class="backup-desc">Create a downloadable backup of the current system database.</p>
+                  </div>
                 </div>
-              </div>
-              <div class="backup-content">
-                <form method="post" action="{{ url_for('admin_backups_export') }}" id="exportForm">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                <div class="backup-content">
+                  <form method="post" action="{{ url_for('admin_backups_export') }}" id="exportForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                    
+                    <div class="backup-form-group">
+                      <label class="backup-label">Backup Filename</label>
+                      <input type="text" name="backup_filename" class="control-input" value="{{ default_filename }}" placeholder="backup_YYYYMMDD_HHMMSS.db" required />
+                    </div>
+
+                    <div class="backup-form-group">
+                      <label class="backup-label">Format</label>
+                      <select name="backup_format" class="control-input">
+                        <option value="db" {% if default_format == 'db' %}selected{% endif %}>SQLite Database (.db)</option>
+                        <option value="sql" {% if default_format == 'sql' %}selected{% endif %}>SQL Dump (.sql)</option>
+                      </select>
+                    </div>
+
+                    <button type="submit" class="action-btn btn-primary" id="exportBtn">
+                      Download Backup
+                    </button>
+                  </form>
                   
-                  <div class="backup-form-group">
-                    <label class="backup-label">Backup Filename</label>
-                    <input type="text" name="backup_filename" class="control-input" value="{{ default_filename }}" placeholder="backup_YYYYMMDD_HHMMSS.db" required />
-                  </div>
-
-                  <div class="backup-form-group">
-                    <label class="backup-label">Format</label>
-                    <select name="backup_format" class="control-input">
-                      <option value="db" {% if default_format == 'db' %}selected{% endif %}>SQLite Database (.db)</option>
-                      <option value="sql" {% if default_format == 'sql' %}selected{% endif %}>SQL Dump (.sql)</option>
-                    </select>
-                  </div>
-
-                  <button type="submit" class="action-btn btn-primary" id="exportBtn">
-                    <span>⬇️</span> Download Backup
-                  </button>
-                </form>
-              </div>
-            </section>
-
-            <!-- Import Section -->
-            <section class="backup-section">
-              <div class="backup-header">
-                <div class="backup-title-group">
-                  <h2 class="backup-title">Restore Database</h2>
-                  <p class="backup-desc">Restore the system from a previous backup file. <strong>Warning: This will overwrite existing data.</strong></p>
-                </div>
-              </div>
-              <div class="backup-content">
-                <form method="post" action="{{ url_for('admin_backups_import') }}" enctype="multipart/form-data" id="importForm">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-                  
-                  <div class="file-drop-zone" id="dropZone">
-                    <input type="file" name="backup_file" class="file-input" id="fileInput" accept=".db,.sql" required />
-                    <div class="drop-icon">📂</div>
-                    <div class="drop-text">Click to upload or drag and drop</div>
-                    <div class="drop-hint">Supported formats: .db, .sql</div>
-                    <div id="fileName" style="margin-top:12px; font-weight:700; color:var(--accent);"></div>
-                  </div>
-
-                  <div style="margin-top:20px; text-align:right;">
-                    <button type="submit" class="action-btn btn-danger" id="importBtn">
-                      <span>🔄</span> Restore Database
+                  <!-- Manual Backup Button -->
+                  <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+                    <button type="button" class="action-btn btn-primary" id="manualBackupBtn" style="width: 100%;">
+                      Manual Backup to B2
                     </button>
                   </div>
-                </form>
-              </div>
-            </section>
+                </div>
+              </section>
+
+              <!-- Import Section -->
+              <section class="backup-section">
+                <div class="backup-header">
+                  <div class="backup-title-group">
+                    <h2 class="backup-title">Restore Database</h2>
+                    <p class="backup-desc">Restore the system from a previous backup file. <strong>Warning: This will overwrite existing data.</strong></p>
+                  </div>
+                </div>
+                <div class="backup-content">
+                  <form method="post" action="{{ url_for('admin_backups_import') }}" enctype="multipart/form-data" id="importForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                    
+                    <div class="file-drop-zone" id="dropZone">
+                      <input type="file" name="backup_file" class="file-input" id="fileInput" accept=".db,.sql" required />
+                      <div class="drop-icon">📁</div>
+                      <div class="drop-text">Click to upload or drag and drop</div>
+                      <div class="drop-hint">Supported formats: .db, .sql</div>
+                      <div id="fileName" style="margin-top:12px; font-weight:700; color:var(--accent);"></div>
+                    </div>
+
+                    <div style="margin-top:20px; text-align:right;">
+                      <button type="submit" class="action-btn btn-danger" id="importBtn">
+                        Restore Database
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </section>
+            </div>
 
             <!-- History Section -->
             {% if history %}
@@ -138,10 +148,20 @@
                   <p class="backup-desc">Recent backup and restore activities.</p>
                 </div>
               </div>
+              
+              <!-- Filter Buttons -->
+              <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="daily">Daily</button>
+                <button class="filter-btn" data-filter="monthly">Monthly</button>
+                <button class="filter-btn" data-filter="manual">Manual</button>
+                <button class="filter-btn" data-filter="restore">Restore</button>
+              </div>
+              
               <div class="history-container">
                 <div class="history-list">
                   {% for item in history %}
-                  <div class="history-item">
+                  <div class="history-item" data-type="{{ item.backup_type }}">
                     <div class="history-info">
                       <div class="history-title">
                         {% if item.operation == 'export' %}Export{% else %}Import{% endif %} 
@@ -151,15 +171,30 @@
                         By {{ item.user }} • {{ item.timestamp_iso }}
                       </div>
                     </div>
-                    <div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <!-- Type Badge -->
+                      <span class="type-badge type-{{ item.backup_type }}">
+                        {% if item.backup_type == 'daily' %}Daily
+                        {% elif item.backup_type == 'monthly' %}Monthly
+                        {% elif item.backup_type == 'manual' %}Manual
+                        {% elif item.backup_type == 'restore' %}Restore
+                        {% else %}Unknown
+                        {% endif %}
+                      </span>
+                      
+                      <!-- Status Badge -->
                       {% if item.status == 'success' %}
-                        <span class="status-badge success">Success</span>
+                        {% if item.get('note') == 'no_new_data' %}
+                          <span class="status-badge success badge-no-new-data">No New Data</span>
+                        {% else %}
+                          <span class="status-badge success">Success</span>
+                        {% endif %}
                       {% else %}
                         <span class="status-badge failure">Failed</span>
                       {% endif %}
                       
                       {% if item.operation == 'export' and item.status == 'success' and item.can_download %}
-                        <a href="{{ url_for('admin_backups_download', filename=item.filename) }}" class="action-btn btn-outline" style="padding:4px 8px; font-size:12px; margin-left:8px;">Download</a>
+                        <a href="{{ url_for('admin_backups_download', filename=item.filename) }}" class="action-btn btn-outline" style="padding:4px 8px; font-size:12px;">Download</a>
                       {% endif %}
                     </div>
                   </div>
@@ -316,6 +351,61 @@
         setTimeout(() => {
           loadingOverlay.style.display = 'none';
         }, 2000);
+      });
+
+      // Manual Backup Button
+      const manualBackupBtn = document.getElementById('manualBackupBtn');
+      if (manualBackupBtn) {
+        manualBackupBtn.addEventListener('click', async () => {
+          const confirmed = confirm('Create a manual backup and upload to Backblaze B2?');
+          if (!confirmed) return;
+          
+          loadingOverlay.style.display = 'flex';
+          
+          try {
+            const formData = new FormData();
+            formData.append('csrf_token', '{{ csrf_token }}');
+            
+            const response = await fetch('{{ url_for("admin_backups_manual") }}', {
+              method: 'POST',
+              body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+              showRestoreModal(true, 'Manual Backup Complete', data.message || 'Manual backup created and uploaded to B2 successfully.');
+            } else {
+              showRestoreModal(false, 'Manual Backup Failed', data.message || 'Failed to create manual backup.');
+            }
+          } catch (error) {
+            console.error('Manual backup error:', error);
+            showRestoreModal(false, 'Manual Backup Failed', 'An unexpected error occurred.');
+          }
+        });
+      }
+
+      // Filter Functionality
+      const filterBtns = document.querySelectorAll('.filter-btn');
+      const historyItems = document.querySelectorAll('.history-item');
+      
+      filterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          // Update active state
+          filterBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          
+          const filter = btn.dataset.filter;
+          
+          // Filter items
+          historyItems.forEach(item => {
+            if (filter === 'all' || item.dataset.type === filter) {
+              item.style.display = 'flex';
+            } else {
+              item.style.display = 'none';
+            }
+          });
+        });
       });
     </script>
 
