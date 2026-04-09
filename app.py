@@ -2040,13 +2040,13 @@ def _run_monthly_full_backup():
             'filename': None, 'timestamp': now_ts, 'status': 'failure',
             'error': str(e)
         })
-        return {'success': False, 'message': f'Monthly backup failed: {str(e)}', 'status_code': 500}
-    finally:
+        # Clean up temp file on error
         if temp_path and os.path.exists(temp_path):
             try:
                 os.remove(temp_path)
             except:
                 pass
+        return {'success': False, 'message': f'Monthly backup failed: {str(e)}', 'status_code': 500}
 
 
 @app.route('/admin/backups/manual', methods=['POST'])
@@ -2159,11 +2159,33 @@ def admin_backups_page():
     current_user = _require_admin()
     success_msg = request.args.get('success_msg')
     error_msg = request.args.get('error_msg')
+    
+    # Pagination parameters
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 10))
+    
+    # Validate per_page
+    if per_page not in [5, 10, 20, 50]:
+        per_page = 10
+    
+    # Filter parameters - Date Range
+    date_from = request.args.get('date_from', '').strip()
+    date_to = request.args.get('date_to', '').strip()
+    
+    # Filter parameters - Time Range
+    time_from = request.args.get('time_from', '').strip()
+    time_to = request.args.get('time_to', '').strip()
+    
     ts = time.strftime("%Y%m%d_%H%M%S")
     default_format = 'db'
     default_filename = f"backup_{ts}.{default_format}"
-    history = _backup_log_read(50)
-    for item in history:
+    
+    # Read all history
+    all_history = _backup_log_read(500)  # Get more records for filtering
+    
+    # Apply filters
+    filtered_history = []
+    for item in all_history:
         # Derive backup_type for legacy entries
         if 'backup_type' not in item or not item['backup_type']:
             operation = item.get('operation', '')
@@ -2177,7 +2199,41 @@ def admin_backups_page():
         name = str(item.get('filename') or '')
         item['can_download'] = bool(name and os.path.exists(os.path.join(BACKUP_DIR, name)))
         ts_val = int(item.get('timestamp') or 0)
-        item['timestamp_iso'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(ts_val)) if ts_val else ''
+        
+        # Convert to 12-hour format with AM/PM
+        if ts_val:
+            dt = time.localtime(ts_val)
+            item['timestamp_iso'] = time.strftime('%Y-%m-%d %I:%M:%S %p', dt)
+            item['date_only'] = time.strftime('%Y-%m-%d', dt)
+            item['time_only'] = time.strftime('%H:%M', dt)  # 24-hour for comparison
+            item['time_display'] = time.strftime('%I:%M %p', dt)  # 12-hour for display
+        else:
+            item['timestamp_iso'] = ''
+            item['date_only'] = ''
+            item['time_only'] = ''
+            item['time_display'] = ''
+        
+        # Apply date range filter independently
+        if date_from and item['date_only'] < date_from:
+            continue
+        if date_to and item['date_only'] > date_to:
+            continue
+            
+        # Apply time range filter independently
+        if time_from and item['time_only'] < time_from:
+            continue
+        if time_to and item['time_only'] > time_to:
+            continue
+        
+        filtered_history.append(item)
+    
+    # Pagination
+    total_items = len(filtered_history)
+    total_pages = max(1, (total_items + per_page - 1) // per_page)  # At least 1 page
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    history = filtered_history[start_idx:end_idx]
+    
     return render_template(
         '/backup_management.html',
         current_user=current_user,
@@ -2187,7 +2243,15 @@ def admin_backups_page():
         error_msg=error_msg,
         default_filename=default_filename,
         default_format=default_format,
-        history=history
+        history=history,
+        page=page,
+        total_pages=total_pages,
+        total_items=total_items,
+        per_page=per_page,
+        date_from=date_from,
+        date_to=date_to,
+        time_from=time_from,
+        time_to=time_to
     )
 
 
