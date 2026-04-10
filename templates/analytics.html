@@ -96,7 +96,7 @@
             <div class="global-filters-row">
               <div class="control">
                 <label class="control-label">Admin Level</label>
-                <select id="globalAdminLevel" class="control-input" style="width:140px;" onchange="onGlobalLevelChange()">
+                <select id="globalAdminLevel" class="control-input" style="width:140px;" onchange="onGlobalLevelChangeNoRefresh()">
                   <option value="region">Region</option>
                   <option value="province" selected>Province</option>
                   <option value="municipality">Municipality</option>
@@ -104,7 +104,7 @@
               </div>
               <div class="control">
                 <label class="control-label">Specific Area</label>
-                <select id="globalAdminArea" class="control-input" style="width:180px;"><option value="all">All Areas</option></select>
+                <select id="globalAdminArea" class="control-input" style="width:180px;" onchange="onGlobalAreaChange()"><option value="all">All Areas</option></select>
               </div>
               <div class="control">
                 <label class="control-label">Time Range</label>
@@ -228,6 +228,26 @@
 
       // ─── Chart instances ──────────────────────────────────────────────────────
       let trendChart = null, statusChart = null, confidenceChart = null, repairChart = null;
+      
+      // ─── Geographic filter change tracking ────────────────────────────────────
+      let geographicFiltersChanged = false;
+      let initialAdminLevel = 'province';
+      let initialAdminArea = 'all';
+
+      function markGeographicFiltersChanged() {
+        geographicFiltersChanged = true;
+        // No visual changes - just track that filters have changed
+      }
+
+      function clearGeographicFiltersChanged() {
+        geographicFiltersChanged = false;
+        const adminLevelSelect = document.getElementById('globalAdminLevel');
+        const adminAreaSelect = document.getElementById('globalAdminArea');
+        
+        // Update initial values
+        initialAdminLevel = adminLevelSelect.value;
+        initialAdminArea = adminAreaSelect.value;
+      }
 
       // ─── Global filter accessor ───────────────────────────────────────────────
       // Single source of truth — every fetch function calls this.
@@ -364,6 +384,23 @@
             console.log('✅ Areas loaded, refreshing charts...'); // Debug log
             refreshAll();
           });
+      }
+
+      function onGlobalLevelChangeNoRefresh() {
+        const selectedLevel = document.getElementById('globalAdminLevel').value;
+        console.log(`🔄 Admin level changed to: ${selectedLevel} (no auto-refresh)`); // Debug log
+        markGeographicFiltersChanged();
+        loadAreas('globalAdminArea', selectedLevel)
+          .then(() => {
+            console.log('✅ Areas loaded, waiting for Apply Filters button...'); // Debug log
+            // Don't auto-refresh - wait for user to click Apply Filters
+          });
+      }
+
+      function onGlobalAreaChange() {
+        const selectedArea = document.getElementById('globalAdminArea').value;
+        console.log(`🔄 Admin area changed to: ${selectedArea} (no auto-refresh)`); // Debug log
+        markGeographicFiltersChanged();
       }
 
       // ─── Refresh all charts + KPIs ────────────────────────────────────────────
@@ -552,7 +589,10 @@
       }
 
       // ─── Event wiring ─────────────────────────────────────────────────────────
-      document.getElementById('applyFiltersBtn').addEventListener('click', refreshAll);
+      document.getElementById('applyFiltersBtn').addEventListener('click', () => {
+        clearGeographicFiltersChanged();
+        refreshAll();
+      });
 
       document.getElementById('clearFiltersBtn').addEventListener('click', () => {
         document.getElementById('timeRangePreset').value = '30d';
@@ -563,11 +603,15 @@
         // Hide custom date inputs and show preset
         document.getElementById('customDateRange').style.display = 'none';
         document.getElementById('customDateRangeEnd').style.display = 'none';
+        clearGeographicFiltersChanged();
         loadAreas('globalAdminArea', 'province').then(refreshAll);
       });
 
       // ─── Initial load ─────────────────────────────────────────────────────────
       loadAreas('globalAdminArea', 'province').then(() => {
+        // Initialize tracking state
+        clearGeographicFiltersChanged();
+        
         fetchOverview();
         fetchTrends();
         fetchStatus();

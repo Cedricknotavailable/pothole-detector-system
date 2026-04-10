@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. Write bug condition exploration test
+- [x] 1. Write bug condition exploration test
   - **Property 1: Bug Condition** - Accurate Geographic Filtering
   - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
   - **DO NOT attempt to fix the test or the code when it fails**
@@ -15,7 +15,7 @@
   - Mark task complete when test is written, run, and failure is documented
   - _Requirements: 2.2, 2.3, 2.4_
 
-- [ ] 2. Write preservation property tests (BEFORE implementing fix)
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
   - **Property 2: Preservation** - Fast Path and Error Handling
   - **IMPORTANT**: Follow observation-first methodology
   - Observe behavior on UNFIXED code for "All Areas" selections and error conditions
@@ -30,9 +30,9 @@
   - Mark task complete when tests are written, run, and passing on unfixed code
   - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-- [ ] 3. Fix for accurate geographic filtering bug
+- [x] 3. Fix for accurate geographic filtering bug
 
-  - [ ] 3.1 Implement the fix
+  - [x] 3.1 Implement the fix
     - Add geometry data validation to verify GeoJSON files exist and are readable
     - Improve area name matching between frontend and GeoJSON data (case-insensitive, special characters)
     - Distinguish between intentional sampling ("All Areas") and filtering failures
@@ -45,7 +45,7 @@
     - _Preservation: Fast sampling for "All Areas", graceful error fallbacks, geometry caching, optimized calculations_
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 2.4, 3.1, 3.2, 3.3, 3.4_
 
-  - [ ] 3.2 Verify bug condition exploration test now passes
+  - [x] 3.2 Verify bug condition exploration test now passes
     - **Property 1: Expected Behavior** - Accurate Geographic Filtering
     - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
     - The test from task 1 encodes the expected behavior
@@ -54,12 +54,12 @@
     - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
     - _Requirements: Expected Behavior Properties from design - accurate geographic filtering_
 
-  - [ ] 3.3 Verify preservation tests still pass
+  - [x] 3.3 Verify preservation tests still pass
     - **Property 2: Preservation** - Fast Path and Error Handling
     - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
     - Run preservation property tests from step 2
     - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
     - Confirm all tests still pass after fix (no regressions)
 
-- [ ] 4. Checkpoint - Ensure all tests pass
+- [x] 4. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.

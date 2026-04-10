@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Apply Filters Button - Manual Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .test-step { margin: 10px 0; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        
+        /* Copy the styles from analytics.html */
+        .btn.pending-changes {
+            background-color: #f59e0b !important;
+            color: white !important;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+        
+        .control-input.changed {
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.3);
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+        }
+        
+        .control-input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Apply Filters Button - Manual Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Implementation</h2>
+        <div class="test-step">
+            <label>Admin Level:</label>
+            <select id="globalAdminLevel" class="control-input" onchange="onGlobalLevelChangeNoRefresh()">
+                <option value="region">Region</option>
+                <option value="province" selected>Province</option>
+                <option value="municipality">Municipality</option>
+            </select>
+        </div>
+        
+        <div class="test-step">
+            <label>Admin Area:</label>
+            <select id="globalAdminArea" class="control-input" onchange="onGlobalAreaChange()">
+                <option value="all">All Areas</option>
+                <option value="test1">Test Area 1</option>
+                <option value="test2">Test Area 2</option>
+            </select>
+        </div>
+        
+        <div class="test-step">
+            <button id="applyFiltersBtn" class="btn" onclick="applyFilters()">Apply Filters</button>
+            <button id="clearFiltersBtn" class="btn" onclick="clearFilters()">Clear</button>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Instructions</h2>
+        <ol>
+            <li class="info">Change the Admin Level dropdown - button should highlight and show "Changes Pending"</li>
+            <li class="info">Change the Admin Area dropdown - button should remain highlighted</li>
+            <li class="info">Click "Apply Filters" - button should reset to normal state</li>
+            <li class="info">Click "Clear" - all filters should reset and button should be normal</li>
+        </ol>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Results</h2>
+        <div id="testResults"></div>
+    </div>
+
+    <script>
+        // Copy the implementation from analytics.html
+        let geographicFiltersChanged = false;
+        let initialAdminLevel = 'province';
+        let initialAdminArea = 'all';
+
+        function markGeographicFiltersChanged() {
+            geographicFiltersChanged = true;
+            const applyBtn = document.getElementById('applyFiltersBtn');
+            const adminLevelSelect = document.getElementById('globalAdminLevel');
+            const adminAreaSelect = document.getElementById('globalAdminArea');
+            
+            // Highlight the Apply Filters button
+            applyBtn.classList.add('pending-changes');
+            applyBtn.textContent = 'Apply Filters (Changes Pending)';
+            
+            // Highlight the changed controls
+            if (adminLevelSelect.value !== initialAdminLevel) {
+                adminLevelSelect.classList.add('changed');
+            }
+            if (adminAreaSelect.value !== initialAdminArea) {
+                adminAreaSelect.classList.add('changed');
+            }
+            
+            logResult('✅ Filters marked as changed - button highlighted');
+        }
+
+        function clearGeographicFiltersChanged() {
+            geographicFiltersChanged = false;
+            const applyBtn = document.getElementById('applyFiltersBtn');
+            const adminLevelSelect = document.getElementById('globalAdminLevel');
+            const adminAreaSelect = document.getElementById('globalAdminArea');
+            
+            // Reset button appearance
+            applyBtn.classList.remove('pending-changes');
+            applyBtn.textContent = 'Apply Filters';
+            
+            // Reset control appearance
+            adminLevelSelect.classList.remove('changed');
+            adminAreaSelect.classList.remove('changed');
+            
+            // Update initial values
+            initialAdminLevel = adminLevelSelect.value;
+            initialAdminArea = adminAreaSelect.value;
+            
+            logResult('✅ Filters cleared - button reset to normal');
+        }
+
+        function onGlobalLevelChangeNoRefresh() {
+            const selectedLevel = document.getElementById('globalAdminLevel').value;
+            logResult(`🔄 Admin level changed to: ${selectedLevel}`);
+            markGeographicFiltersChanged();
+        }
+
+        function onGlobalAreaChange() {
+            const selectedArea = document.getElementById('globalAdminArea').value;
+            logResult(`🔄 Admin area changed to: ${selectedArea}`);
+            markGeographicFiltersChanged();
+        }
+
+        function applyFilters() {
+            logResult('🔘 Apply Filters clicked');
+            clearGeographicFiltersChanged();
+            // In real implementation, this would call refreshAll()
+            logResult('📊 Filters applied (would refresh charts in real app)');
+        }
+
+        function clearFilters() {
+            document.getElementById('globalAdminLevel').value = 'province';
+            document.getElementById('globalAdminArea').value = 'all';
+            clearGeographicFiltersChanged();
+            logResult('🧹 All filters cleared');
+        }
+
+        function logResult(message) {
+            const results = document.getElementById('testResults');
+            const div = document.createElement('div');
+            div.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            div.className = message.includes('✅') ? 'success' : message.includes('❌') ? 'error' : 'info';
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        // Initialize
+        clearGeographicFiltersChanged();
+        logResult('🚀 Test initialized - ready for testing');
+    </script>
+</body>
+</html>

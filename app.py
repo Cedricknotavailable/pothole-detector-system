@@ -4507,6 +4507,12 @@ def load_geojson_polygons(area_type='province'):
     Loads GeoJSON data and returns a dictionary of polygons keyed by area name.
     Supported types: 'province', 'municipality', 'region'
     Enhanced with validation and error handling for accurate geographic filtering.
+    
+    Creates multiple lookup keys for flexible area name matching:
+    - Original name from GeoJSON (e.g., "IlocosNorte", "Northern Mindanao")
+    - Normalized name with spaces (e.g., "Ilocos Norte", "Northern Mindanao") 
+    - Normalized name without spaces (e.g., "IlocosNorte", "NorthernMindanao")
+    - Case-insensitive variations of all above
     """
     global _geojson_cache
     if area_type in _geojson_cache:
@@ -4520,15 +4526,15 @@ def load_geojson_polygons(area_type='province'):
     
     # Enhanced validation: verify GeoJSON files exist and are readable
     if not os.path.exists(filepath):
-        print(f"Warning: GeoJSON file not found: {filepath}")
+        print(f"Error: GeoJSON file not found: {filepath}")
         return {}
     
     if not os.path.isfile(filepath):
-        print(f"Warning: GeoJSON path is not a file: {filepath}")
+        print(f"Error: GeoJSON path is not a file: {filepath}")
         return {}
     
     if not os.access(filepath, os.R_OK):
-        print(f"Warning: GeoJSON file is not readable: {filepath}")
+        print(f"Error: GeoJSON file is not readable: {filepath}")
         return {}
 
     try:
@@ -4537,12 +4543,12 @@ def load_geojson_polygons(area_type='province'):
         
         # Validate GeoJSON structure
         if not isinstance(data, dict):
-            print(f"Warning: Invalid GeoJSON format in {filename} - not a dictionary")
+            print(f"Error: Invalid GeoJSON format in {filename} - not a dictionary")
             return {}
         
         features = data.get('features', [])
         if not isinstance(features, list):
-            print(f"Warning: Invalid GeoJSON format in {filename} - features is not a list")
+            print(f"Error: Invalid GeoJSON format in {filename} - features is not a list")
             return {}
         
         polygons = {}
@@ -4579,18 +4585,45 @@ def load_geojson_polygons(area_type='province'):
             if not geom_type or not coords:
                 print(f"Warning: Invalid geometry structure for {area_type} '{name}'")
                 continue
-                
-            # Store both original name and normalized name (without spaces) as keys
-            polygons[name] = geometry
             
-            # Also store normalized version (remove spaces) for better matching
-            normalized_name = name.replace(' ', '')
-            if normalized_name != name:
-                polygons[normalized_name] = geometry
+            # Create multiple lookup keys for flexible matching
+            lookup_keys = set()
+            
+            # 1. Original name from GeoJSON
+            lookup_keys.add(name)
+            
+            # 2. Handle different naming patterns per area type
+            if area_type in ['province', 'municipality']:
+                # Provinces/municipalities are stored without spaces, add spaced version
+                # "IlocosNorte" -> "Ilocos Norte", "LaoagCity" -> "Laoag City"
+                spaced_name = name
+                # Insert space before capital letters (except first)
+                import re
+                spaced_name = re.sub(r'(?<!^)(?=[A-Z])', ' ', name)
+                lookup_keys.add(spaced_name)
+            elif area_type == 'region':
+                # Regions are stored with spaces, add non-spaced version
+                # "Northern Mindanao" -> "NorthernMindanao"
+                no_space_name = name.replace(' ', '')
+                lookup_keys.add(no_space_name)
+            
+            # 3. Add case-insensitive versions
+            case_insensitive_keys = set()
+            for key in lookup_keys:
+                case_insensitive_keys.add(key.lower())
+            lookup_keys.update(case_insensitive_keys)
+            
+            # Store geometry under all lookup keys
+            for key in lookup_keys:
+                polygons[key] = geometry
             
             processed_count += 1
         
         print(f"Loaded {processed_count} {area_type} geometries from {filename}")
+        if processed_count > 0:
+            sample_keys = list(polygons.keys())[:5]
+            print(f"Sample lookup keys for {area_type}: {sample_keys}")
+        
         _geojson_cache[area_type] = polygons
         return polygons
         
@@ -4824,51 +4857,76 @@ def filter_by_area(query, model, area_name, area_type='province'):
         polygons = load_geojson_polygons(area_type)
         
         if not polygons:
-            print(f"Warning: No geometry data loaded for {area_type}. GeoJSON file may be missing or invalid.")
-            # Fallback to sample data when geometry data is completely missing
+            print(f"Error: No geometry data loaded for {area_type}. GeoJSON file may be missing or invalid.")
+            # System error: missing/invalid GeoJSON files should fall back to sample data
+            # This preserves graceful error handling for system-level issues
             fallback_size = 300
-            print(f"Fallback: Returning {fallback_size} sample records due to missing geometry data")
+            print(f"System error fallback: Returning {fallback_size} sample records due to missing/invalid GeoJSON file")
             return query.limit(fallback_size).all()
         
-        # Improved area name matching: try multiple variations
+        # Enhanced area name matching with multiple lookup strategies
         geometry = None
         original_area_name = area_name
         
-        # Try exact match first
+        # Strategy 1: Try exact match first
         geometry = polygons.get(area_name)
+        if geometry:
+            print(f"Found geometry using exact match: '{area_name}'")
         
-        # If no exact match, try normalized name (remove spaces)
-        if not geometry:
-            normalized_name = area_name.replace(' ', '')
-            geometry = polygons.get(normalized_name)
-            if geometry:
-                print(f"Found geometry using normalized name: '{area_name}' -> '{normalized_name}'")
-        
-        # If still no match, try case-insensitive matching
+        # Strategy 2: Try case-insensitive match
         if not geometry:
             area_name_lower = area_name.lower()
-            for key, geom in polygons.items():
-                if key.lower() == area_name_lower:
-                    geometry = geom
-                    print(f"Found geometry using case-insensitive match: '{area_name}' -> '{key}'")
-                    break
+            geometry = polygons.get(area_name_lower)
+            if geometry:
+                print(f"Found geometry using case-insensitive match: '{area_name}' -> '{area_name_lower}'")
         
-        # If still no match, try case-insensitive normalized matching
+        # Strategy 3: Try area-type specific normalization
         if not geometry:
-            normalized_lower = area_name.replace(' ', '').lower()
-            for key, geom in polygons.items():
-                if key.lower() == normalized_lower:
-                    geometry = geom
-                    print(f"Found geometry using case-insensitive normalized match: '{area_name}' -> '{key}'")
-                    break
+            if area_type in ['province', 'municipality']:
+                # For provinces/municipalities: remove spaces ("Ilocos Norte" -> "IlocosNorte")
+                normalized_name = area_name.replace(' ', '')
+                geometry = polygons.get(normalized_name)
+                if geometry:
+                    print(f"Found geometry using space removal: '{area_name}' -> '{normalized_name}'")
+                else:
+                    # Try case-insensitive version
+                    geometry = polygons.get(normalized_name.lower())
+                    if geometry:
+                        print(f"Found geometry using case-insensitive space removal: '{area_name}' -> '{normalized_name.lower()}'")
+            elif area_type == 'region':
+                # For regions: try adding spaces if not present, or exact match
+                # Regions are stored with spaces in GeoJSON, so frontend should match
+                pass  # Already tried exact and case-insensitive above
+        
+        # Strategy 4: Try reverse normalization for regions
+        if not geometry and area_type == 'region':
+            # If area_name has no spaces, try adding them intelligently
+            if ' ' not in area_name:
+                # "NorthernMindanao" -> "Northern Mindanao"
+                import re
+                spaced_name = re.sub(r'(?<!^)(?=[A-Z])', ' ', area_name)
+                geometry = polygons.get(spaced_name)
+                if geometry:
+                    print(f"Found geometry using space insertion: '{area_name}' -> '{spaced_name}'")
+                else:
+                    # Try case-insensitive version
+                    geometry = polygons.get(spaced_name.lower())
+                    if geometry:
+                        print(f"Found geometry using case-insensitive space insertion: '{area_name}' -> '{spaced_name.lower()}'")
         
         if not geometry:
             print(f"Warning: No geometry found for {area_type} '{original_area_name}' in GeoJSON data")
-            print(f"Available {area_type} names: {list(polygons.keys())[:10]}...")  # Show first 10 for debugging
-            # Fallback to sample data when specific geometry is missing (preserves existing behavior)
-            fallback_size = 300
-            print(f"Fallback: Returning {fallback_size} sample records due to missing geometry for specific area")
-            return query.limit(fallback_size).all()
+            available_keys = list(polygons.keys())
+            if available_keys:
+                print(f"Available {area_type} names (first 10): {available_keys[:10]}")
+            else:
+                print(f"No {area_type} names available in geometry data")
+            
+            # Distinguish between missing geometry (user error) and system errors
+            # Missing geometry for specific areas should return empty results
+            # This helps users understand that the area name is invalid
+            print(f"Returning empty results - geometry not found for specific area '{original_area_name}'")
+            return []
         
         print(f"Processing {len(all_records)} records for geographic filtering...")
         
@@ -4921,16 +4979,15 @@ def filter_by_area(query, model, area_name, area_type='province'):
     except Exception as e:
         print(f"Geographic filtering error for {area_name} ({area_type}): {e}")
         
-        # Preserve existing fallback behavior for error conditions
+        # System errors should fall back gracefully to sample data (preserves requirement 3.2)
+        # This handles timeouts, memory issues, calculation errors, etc.
         if is_render_hosting:
-            # On Render, return limited sample to prevent further errors
             fallback_size = 200
-            print(f"Render fallback: Returning {fallback_size} sample records")
+            print(f"System error fallback (Render): Returning {fallback_size} sample records")
             return query.limit(fallback_size).all()
         else:
-            # On localhost, return more data for development debugging
             fallback_size = 500
-            print(f"Localhost fallback: Returning {fallback_size} sample records")
+            print(f"System error fallback (localhost): Returning {fallback_size} sample records")
             return query.limit(fallback_size).all()
 
 def filter_by_area_precise(query, model, area_name, area_type='province'):
