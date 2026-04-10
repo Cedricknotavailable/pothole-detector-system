@@ -789,21 +789,6 @@
           exportBtn.innerHTML = originalText;
         }
       }
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
-          
-          console.log('PDF export completed successfully');
-          
-        } catch (error) {
-          console.error('PDF export failed:', error);
-          alert('Failed to export PDF. Please try again.');
-        } finally {
-          // Restore button state
-          exportBtn.disabled = false;
-          exportBtn.classList.remove('export-loading');
-          exportBtn.innerHTML = originalText;
-        }
-      }
       
       // Add CSS for spinning animation
       const style = document.createElement('style');
