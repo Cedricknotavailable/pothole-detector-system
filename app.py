@@ -4481,12 +4481,16 @@ def generate_analytics_pdf(chart_data):
             'heatmap': 'Geographic Heatmap'
         }
         
+        # Define chart order to ensure consistent processing
+        chart_order = ['trends', 'status', 'confidence', 'repair', 'heatmap']
+        
         # Add charts (2 per page for good quality)
         chart_count = 0
         processed_charts = 0
-        max_charts = 4  # Limit number of charts to prevent memory issues
+        max_charts = 5  # Include all 5 charts
         
-        for chart_key, chart_image in charts.items():
+        for chart_key in chart_order:
+            chart_image = charts.get(chart_key)
             if chart_image and chart_key in chart_titles and processed_charts < max_charts:
                 # Add page break after every 2 charts (except first)
                 if chart_count > 0 and chart_count % 2 == 0:
