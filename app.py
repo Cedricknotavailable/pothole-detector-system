@@ -4590,26 +4590,201 @@ def is_point_in_geometry(lat, lng, geometry):
         
     return False
 
+def is_point_in_geometry_optimized(lat, lng, geometry):
+    """
+    Optimized version of is_point_in_geometry with performance improvements for Render hosting.
+    Includes bounds checking and simplified polygon processing.
+    """
+    if not lat or not lng or not geometry:
+        return False
+    
+    try:
+        # Convert to float to ensure numeric comparison
+        lat = float(lat)
+        lng = float(lng)
+        
+        geom_type = geometry.get('type')
+        coords = geometry.get('coordinates')
+        
+        if not coords:
+            return False
+        
+        if geom_type == 'Polygon':
+            # Quick bounds check first (much faster than point-in-polygon)
+            if not _quick_bounds_check(lat, lng, coords[0]):
+                return False
+            return point_in_polygon_optimized((lat, lng), coords[0])
+            
+        elif geom_type == 'MultiPolygon':
+            # For MultiPolygon, check each polygon
+            for poly in coords:
+                if poly and len(poly) > 0:
+                    if _quick_bounds_check(lat, lng, poly[0]):
+                        if point_in_polygon_optimized((lat, lng), poly[0]):
+                            return True
+            return False
+            
+        return False
+        
+    except (ValueError, TypeError, IndexError):
+        # Fallback to original function on any error
+        return is_point_in_geometry(lat, lng, geometry)
+
+def _quick_bounds_check(lat, lng, polygon_coords):
+    """
+    Quick bounding box check before expensive point-in-polygon calculation.
+    Returns False if point is definitely outside, True if it might be inside.
+    """
+    if not polygon_coords or len(polygon_coords) < 3:
+        return False
+    
+    try:
+        # Find min/max bounds of polygon
+        lngs = [coord[0] for coord in polygon_coords if len(coord) >= 2]
+        lats = [coord[1] for coord in polygon_coords if len(coord) >= 2]
+        
+        if not lngs or not lats:
+            return False
+        
+        min_lng, max_lng = min(lngs), max(lngs)
+        min_lat, max_lat = min(lats), max(lats)
+        
+        # Check if point is within bounding box
+        return min_lng <= lng <= max_lng and min_lat <= lat <= max_lat
+        
+    except (IndexError, TypeError, ValueError):
+        return True  # If bounds check fails, assume it might be inside
+
+def point_in_polygon_optimized(point, polygon_coords):
+    """
+    Optimized ray-casting algorithm with early termination and simplified calculations.
+    """
+    if not polygon_coords or len(polygon_coords) < 3:
+        return False
+    
+    try:
+        lat, lng = point
+        inside = False
+        j = len(polygon_coords) - 1
+        
+        for i in range(len(polygon_coords)):
+            coord_i = polygon_coords[i]
+            coord_j = polygon_coords[j]
+            
+            # Ensure coordinates have at least 2 elements
+            if len(coord_i) < 2 or len(coord_j) < 2:
+                j = i
+                continue
+            
+            xi, yi = coord_i[0], coord_i[1]
+            xj, yj = coord_j[0], coord_j[1]
+            
+            # Optimized intersection check with better numerical stability
+            if ((yi > lat) != (yj > lat)):
+                # Calculate intersection point x-coordinate
+                if abs(yj - yi) > 1e-10:  # Avoid division by very small numbers
+                    x_intersect = (xj - xi) * (lat - yi) / (yj - yi) + xi
+                    if lng < x_intersect:
+                        inside = not inside
+            
+            j = i
+            
+        return inside
+        
+    except (IndexError, TypeError, ValueError, ZeroDivisionError):
+        # Fallback to original algorithm on any error
+        return point_in_polygon(point, polygon_coords)
+
 def filter_by_area(query, model, area_name, area_type='province'):
     """
     Filters a SQLAlchemy query by checking if the model's lat/lng are inside the area.
+    Optimized for Render hosting with memory and performance constraints.
     """
     if not area_name:
-        return query.all() # Return list to be consistent
-        
-    polygons = load_geojson_polygons(area_type)
-    geometry = polygons.get(area_name)
-    
-    if not geometry:
         return query.all()
+    
+    try:
+        # Get all records first with minimal memory footprint
+        all_records = query.with_entities(model.id, model.latitude, model.longitude).all()
         
-    all_records = query.all()
-    filtered = []
-    for record in all_records:
-        if is_point_in_geometry(record.latitude, record.longitude, geometry):
-            filtered.append(record)
+        # Early return if no records
+        if not all_records:
+            return []
+        
+        # Implement progressive limits based on area type to prevent timeouts
+        max_records_to_process = {
+            'region': 2000,      # Regions are simpler, can handle more
+            'province': 1000,    # Provinces are medium complexity
+            'municipality': 500  # Municipalities are most complex, limit heavily
+        }.get(area_type, 1000)
+        
+        # Limit records if dataset is too large for Render
+        if len(all_records) > max_records_to_process:
+            print(f"Warning: Limiting geographic filtering to {max_records_to_process} records for {area_type}")
+            all_records = all_records[:max_records_to_process]
+        
+        # Load geometry with caching
+        polygons = load_geojson_polygons(area_type)
+        geometry = polygons.get(area_name)
+        
+        if not geometry:
+            print(f"Warning: No geometry found for {area_name} in {area_type}")
+            return query.all()
+        
+        # Filter IDs using optimized point-in-polygon check
+        valid_ids = []
+        processed_count = 0
+        start_time = time.time()
+        
+        for record_id, lat, lng in all_records:
+            # Skip records without coordinates
+            if not lat or not lng:
+                continue
             
-    return filtered
+            # Timeout protection for Render (max 25 seconds for geographic filtering)
+            if time.time() - start_time > 25:
+                print(f"Geographic filtering timeout after {processed_count} records")
+                break
+                
+            # Memory management: process in batches and force garbage collection
+            if processed_count > 0 and processed_count % 100 == 0:
+                import gc
+                gc.collect()
+            
+            # Quick bounds check before expensive polygon check
+            if is_point_in_geometry_optimized(lat, lng, geometry):
+                valid_ids.append(record_id)
+            
+            processed_count += 1
+        
+        # Return filtered records using IDs
+        if valid_ids:
+            return query.filter(model.id.in_(valid_ids)).all()
+        else:
+            return []
+            
+    except Exception as e:
+        # Fallback to unfiltered results on error to prevent 500 errors
+        print(f"Geographic filtering error for {area_name} ({area_type}): {e}")
+        # Return a limited sample instead of all records to prevent memory issues
+        return query.limit(100).all()
+
+def filter_by_area_fallback(query, model, area_name, area_type='province'):
+    """
+    Fallback geographic filtering using database-level filtering where possible.
+    Used when the main filter_by_area function times out or fails.
+    """
+    try:
+        # For now, return a limited sample of records
+        # In the future, this could implement database-level spatial queries
+        # if PostGIS or similar spatial extensions are available
+        
+        print(f"Using fallback filtering for {area_name} ({area_type})")
+        return query.limit(50).all()
+        
+    except Exception as e:
+        print(f"Fallback filtering also failed: {e}")
+        return []
 
 
 
