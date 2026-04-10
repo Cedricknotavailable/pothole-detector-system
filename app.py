@@ -4245,7 +4245,15 @@ def export_analytics_pdf():
     try:
         data = request.get_json()
         if not data:
+            app.logger.error("PDF export: No data provided")
             return jsonify({'error': 'No data provided'}), 400
+        
+        app.logger.info(f"PDF export started for user {session.get('user_id', 'unknown')}")
+        
+        # Log data size for debugging
+        import sys
+        data_size = sys.getsizeof(str(data))
+        app.logger.info(f"PDF export data size: {data_size} bytes")
         
         # Generate PDF using ReportLab
         pdf_buffer = generate_analytics_pdf(data)
@@ -4254,15 +4262,22 @@ def export_analytics_pdf():
         timestamp = time.strftime('%Y%m%d_%H%M%S')
         filename = f'analytics_report_{timestamp}.pdf'
         
+        app.logger.info(f"PDF export completed successfully: {filename}")
+        
         return send_file(
             pdf_buffer,
             as_attachment=True,
             download_name=filename,
             mimetype='application/pdf'
         )
+    except MemoryError as e:
+        app.logger.error(f"PDF export memory error: {e}")
+        return jsonify({'error': 'Insufficient memory to generate PDF. Please try with fewer filters or a smaller date range.'}), 500
     except Exception as e:
         app.logger.error(f"PDF export error: {e}")
-        return jsonify({'error': 'Failed to generate PDF'}), 500
+        import traceback
+        app.logger.error(f"PDF export traceback: {traceback.format_exc()}")
+        return jsonify({'error': 'Failed to generate PDF. Please try again or contact support.'}), 500
 
 
 def generate_analytics_pdf(chart_data):
@@ -4275,8 +4290,9 @@ def generate_analytics_pdf(chart_data):
     from io import BytesIO
     import base64
     from datetime import datetime
+    import gc  # Add garbage collection
     
-    def process_base64_image(base64_string, max_width=7*inch):
+    def process_base64_image(base64_string, max_width=6*inch):  # Reduced max width
         """Convert base64 image to ReportLab Image with size optimization"""
         try:
             # Remove data URL prefix if present
@@ -4287,15 +4303,26 @@ def generate_analytics_pdf(chart_data):
                 
             image_bytes = base64.b64decode(image_data)
             
+            # Limit image size for memory efficiency
+            if len(image_bytes) > 2 * 1024 * 1024:  # 2MB limit
+                print(f"Image too large ({len(image_bytes)} bytes), skipping")
+                return None
+            
             # Create ReportLab Image from bytes
             img_buffer = BytesIO(image_bytes)
             img = Image(img_buffer)
             
-            # Scale to fit page width
+            # Scale to fit page width with more aggressive scaling
             if img.drawWidth > max_width:
                 ratio = max_width / img.drawWidth
                 img.drawWidth = max_width
                 img.drawHeight = img.drawHeight * ratio
+            
+            # Further reduce if still too large
+            if img.drawHeight > 4*inch:
+                ratio = (4*inch) / img.drawHeight
+                img.drawHeight = 4*inch
+                img.drawWidth = img.drawWidth * ratio
             
             return img
         except Exception as e:
@@ -4395,7 +4422,7 @@ def generate_analytics_pdf(chart_data):
         story.append(kpi_table)
         story.append(Spacer(1, 30))
     
-    # Charts
+    # Charts - Process with memory management
     if 'charts' in chart_data:
         charts = chart_data['charts']
         chart_titles = {
@@ -4408,8 +4435,11 @@ def generate_analytics_pdf(chart_data):
         
         # Add charts (2 per page for good quality)
         chart_count = 0
+        processed_charts = 0
+        max_charts = 4  # Limit number of charts to prevent memory issues
+        
         for chart_key, chart_image in charts.items():
-            if chart_image and chart_key in chart_titles:
+            if chart_image and chart_key in chart_titles and processed_charts < max_charts:
                 # Add page break after every 2 charts (except first)
                 if chart_count > 0 and chart_count % 2 == 0:
                     story.append(PageBreak())
@@ -4420,13 +4450,17 @@ def generate_analytics_pdf(chart_data):
                     img = process_base64_image(chart_image)
                     if img:
                         story.append(img)
+                        processed_charts += 1
                     else:
-                        story.append(Paragraph("Chart could not be rendered", styles['Normal']))
+                        story.append(Paragraph("Chart could not be rendered (size limit exceeded)", styles['Normal']))
                 except Exception as e:
                     story.append(Paragraph(f"Chart rendering error: {str(e)}", styles['Normal']))
                 
                 story.append(Spacer(1, 20))
                 chart_count += 1
+                
+                # Force garbage collection after each chart
+                gc.collect()
     
     # Footer
     story.append(Spacer(1, 30))
@@ -4439,9 +4473,27 @@ def generate_analytics_pdf(chart_data):
     )
     story.append(Paragraph("Generated by SURVEYOR.AI Analytics Dashboard", footer_style))
     
-    doc.build(story)
-    buffer.seek(0)
-    return buffer
+    try:
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+    except Exception as e:
+        print(f"PDF build error: {e}")
+        # Force garbage collection and retry with minimal content
+        gc.collect()
+        
+        # Create minimal PDF on failure
+        minimal_story = [
+            Paragraph("SURVEYOR.AI Analytics Report", title_style),
+            Paragraph(f"Generated on {formatted_time}", subtitle_style),
+            Paragraph("PDF generation encountered memory constraints. Please try again with fewer filters or contact support.", styles['Normal'])
+        ]
+        
+        minimal_buffer = BytesIO()
+        minimal_doc = SimpleDocTemplate(minimal_buffer, pagesize=A4)
+        minimal_doc.build(minimal_story)
+        minimal_buffer.seek(0)
+        return minimal_buffer
 
 
 import json

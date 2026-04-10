@@ -627,20 +627,25 @@
             useCORS: true,
             allowTaint: true,
             backgroundColor: '#f0f0f0',
-            scale: 1,
+            scale: 0.8,  // Reduced scale for memory efficiency
             logging: false,
+            width: Math.min(mapContainer.offsetWidth, 800),  // Limit width
+            height: Math.min(mapContainer.offsetHeight, 600), // Limit height
             onclone: function(clonedDoc) {
               // Ensure the cloned map container maintains its dimensions
               const clonedMapContainer = clonedDoc.getElementById('heatmapMap');
               if (clonedMapContainer) {
-                clonedMapContainer.style.width = mapContainer.offsetWidth + 'px';
-                clonedMapContainer.style.height = mapContainer.offsetHeight + 'px';
+                clonedMapContainer.style.width = Math.min(mapContainer.offsetWidth, 800) + 'px';
+                clonedMapContainer.style.height = Math.min(mapContainer.offsetHeight, 600) + 'px';
               }
             }
           });
           
+          // Convert to base64 with compression
+          const base64 = canvas.toDataURL('image/jpeg', 0.8); // JPEG with 80% quality
+          
           console.log('Captured actual map with heatmap');
-          return canvas.toDataURL('image/png');
+          return base64;
           
         } catch (error) {
           console.error('Map capture failed, using fallback:', error);
@@ -650,8 +655,8 @@
           const ctx = canvas.getContext('2d');
           const mapContainer = document.getElementById('heatmapMap');
           
-          canvas.width = mapContainer.offsetWidth;
-          canvas.height = mapContainer.offsetHeight;
+          canvas.width = Math.min(mapContainer.offsetWidth, 800);
+          canvas.height = Math.min(mapContainer.offsetHeight, 600);
           
           ctx.fillStyle = '#f0f0f0';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -720,20 +725,33 @@
           
           console.log('Starting PDF export...');
           
-          // Capture chart data (now async)
-          const chartData = await captureChartsForPDF();
+          // Capture chart data with timeout
+          const chartData = await Promise.race([
+            captureChartsForPDF(),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Chart capture timeout')), 30000)
+            )
+          ]);
           
-          // Send to server for PDF generation
-          const response = await fetch('/api/analytics/export-pdf', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(chartData)
-          });
+          console.log('Chart data captured, sending to server...');
+          
+          // Send to server for PDF generation with extended timeout
+          const response = await Promise.race([
+            fetch('/api/analytics/export-pdf', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(chartData)
+            }),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Server timeout')), 60000)
+            )
+          ]);
           
           if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
           }
           
           // Download the PDF
@@ -744,6 +762,33 @@
           a.download = `analytics_report_${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.pdf`;
           document.body.appendChild(a);
           a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          
+          console.log('PDF export completed successfully');
+          
+        } catch (error) {
+          console.error('PDF export failed:', error);
+          
+          // Show user-friendly error message
+          let errorMessage = 'PDF export failed. ';
+          if (error.message.includes('timeout')) {
+            errorMessage += 'The operation timed out. Please try again with fewer filters or a smaller date range.';
+          } else if (error.message.includes('HTTP 500')) {
+            errorMessage += 'Server error occurred. This may be due to memory constraints. Please try again.';
+          } else {
+            errorMessage += 'Please try again or contact support if the issue persists.';
+          }
+          
+          alert(errorMessage);
+          
+        } finally {
+          // Reset button state
+          exportBtn.disabled = false;
+          exportBtn.classList.remove('export-loading');
+          exportBtn.innerHTML = originalText;
+        }
+      }
           document.body.removeChild(a);
           window.URL.revokeObjectURL(url);
           
