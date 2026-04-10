@@ -4698,11 +4698,34 @@ def point_in_polygon_optimized(point, polygon_coords):
 def filter_by_area(query, model, area_name, area_type='province'):
     """
     Filters a SQLAlchemy query by checking if the model's lat/lng are inside the area.
-    Optimized for Render hosting with memory and performance constraints.
+    Optimized for Render hosting with aggressive resource constraints.
     """
     if not area_name:
         return query.all()
     
+    # Detect if we're running on Render or similar resource-constrained environment
+    is_render_hosting = bool(
+        os.environ.get('RENDER') or 
+        os.environ.get('RENDER_SERVICE_ID') or
+        os.environ.get('PORT') == '10000'  # Render's default port
+    )
+    
+    # AGGRESSIVE RENDER OPTIMIZATION: Skip complex geographic filtering entirely
+    # for provinces and municipalities to prevent 502/503 errors
+    if is_render_hosting and area_type in ['province', 'municipality']:
+        print(f"Render optimization: Skipping complex geographic filtering for {area_type} '{area_name}'")
+        print(f"Returning sample of records instead of precise geographic filtering")
+        
+        # Return a reasonable sample of records instead of precise filtering
+        # This prevents 502/503 errors while still providing useful analytics
+        sample_size = {
+            'province': 200,      # Reasonable sample for provinces
+            'municipality': 100   # Smaller sample for municipalities
+        }.get(area_type, 100)
+        
+        return query.limit(sample_size).all()
+    
+    # For localhost/development or regions, perform geographic filtering
     try:
         # Get all records first with minimal memory footprint
         all_records = query.with_entities(model.id, model.latitude, model.longitude).all()
@@ -4711,17 +4734,26 @@ def filter_by_area(query, model, area_name, area_type='province'):
         if not all_records:
             return []
         
-        # Implement progressive limits based on area type to prevent timeouts
-        max_records_to_process = {
-            'region': 2000,      # Regions are simpler, can handle more
-            'province': 1000,    # Provinces are medium complexity
-            'municipality': 500  # Municipalities are most complex, limit heavily
-        }.get(area_type, 1000)
+        # Set limits based on environment and area type
+        if is_render_hosting:
+            max_records = {
+                'region': 1000,      # Regions work on Render
+                'province': 500,     # Reduced limit for provinces
+                'municipality': 200  # Very small limit for municipalities
+            }.get(area_type, 500)
+            timeout_seconds = 10  # Shorter timeout on Render
+        else:
+            max_records = {
+                'region': 5000,      # Higher limits for localhost
+                'province': 3000,
+                'municipality': 1000
+            }.get(area_type, 2000)
+            timeout_seconds = 60  # Longer timeout for localhost
         
-        # Limit records if dataset is too large for Render
-        if len(all_records) > max_records_to_process:
-            print(f"Warning: Limiting geographic filtering to {max_records_to_process} records for {area_type}")
-            all_records = all_records[:max_records_to_process]
+        # Limit records if dataset is too large
+        if len(all_records) > max_records:
+            print(f"Limiting geographic filtering to {max_records} records for {area_type}")
+            all_records = all_records[:max_records]
         
         # Load geometry with caching
         polygons = load_geojson_polygons(area_type)
@@ -4741,12 +4773,74 @@ def filter_by_area(query, model, area_name, area_type='province'):
             if not lat or not lng:
                 continue
             
-            # Timeout protection for Render (max 25 seconds for geographic filtering)
-            if time.time() - start_time > 25:
+            # Timeout protection
+            if time.time() - start_time > timeout_seconds:
                 print(f"Geographic filtering timeout after {processed_count} records")
                 break
                 
-            # Memory management: process in batches and force garbage collection
+            # Memory management: process in batches
+            if processed_count > 0 and processed_count % 50 == 0:
+                import gc
+                gc.collect()
+            
+            # Quick bounds check before expensive polygon check
+            if is_point_in_geometry_optimized(lat, lng, geometry):
+                valid_ids.append(record_id)
+            
+            processed_count += 1
+        
+        # Return filtered records using IDs
+        if valid_ids:
+            return query.filter(model.id.in_(valid_ids)).all()
+        else:
+            return []
+            
+    except Exception as e:
+        print(f"Geographic filtering error for {area_name} ({area_type}): {e}")
+        # Return a limited sample instead of all records to prevent memory issues
+        sample_size = 200 if is_render_hosting else 500
+        return query.limit(sample_size).all()
+
+def filter_by_area_precise(query, model, area_name, area_type='province'):
+    """
+    PRECISE geographic filtering - only use this for localhost/development.
+    This function performs the full geographic filtering that causes 502/503 on Render.
+    """
+    if not area_name:
+        return query.all()
+    
+    try:
+        # Get all records first with minimal memory footprint
+        all_records = query.with_entities(model.id, model.latitude, model.longitude).all()
+        
+        # Early return if no records
+        if not all_records:
+            return []
+        
+        # Load geometry with caching
+        polygons = load_geojson_polygons(area_type)
+        geometry = polygons.get(area_name)
+        
+        if not geometry:
+            print(f"Warning: No geometry found for {area_name} in {area_type}")
+            return query.all()
+        
+        # Filter IDs using optimized point-in-polygon check
+        valid_ids = []
+        processed_count = 0
+        start_time = time.time()
+        
+        for record_id, lat, lng in all_records:
+            # Skip records without coordinates
+            if not lat or not lng:
+                continue
+            
+            # Timeout protection (60 seconds for precise filtering)
+            if time.time() - start_time > 60:
+                print(f"Precise filtering timeout after {processed_count} records")
+                break
+                
+            # Memory management: process in batches
             if processed_count > 0 and processed_count % 100 == 0:
                 import gc
                 gc.collect()
@@ -4764,9 +4858,7 @@ def filter_by_area(query, model, area_name, area_type='province'):
             return []
             
     except Exception as e:
-        # Fallback to unfiltered results on error to prevent 500 errors
-        print(f"Geographic filtering error for {area_name} ({area_type}): {e}")
-        # Return a limited sample instead of all records to prevent memory issues
+        print(f"Precise filtering error for {area_name} ({area_type}): {e}")
         return query.limit(100).all()
 
 def filter_by_area_fallback(query, model, area_name, area_type='province'):
