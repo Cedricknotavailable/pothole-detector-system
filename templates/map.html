@@ -55,6 +55,10 @@
                     <a href="/analytics">Analytics</a>
                     <a href="/activity-logs">Activity Logs</a>
                     <a href="/logout">Log Out</a>
+                {% elif is_admin_or_moderator %}
+                    <a class="active" href="/map">Map</a>
+                    <a href="/defects">Defects Management</a>
+                    <a href="/logout">Log Out</a>
                 {% else %}
                     <a class="active" href="/map">Map</a>
                     <a href="/reports">Submit report</a>
@@ -77,6 +81,10 @@
             <a href="/admin/backups">Backup Management</a>
             <a href="/analytics">Analytics</a>
             <a href="/activity-logs">Activity Logs</a>
+            <a href="/logout">Log Out</a>
+          {% elif is_admin_or_moderator %}
+            <a class="active" href="/map">Map</a>
+            <a href="/defects">Defects Management</a>
             <a href="/logout">Log Out</a>
           {% else %}
             <a class="active" href="/map">Map</a>
@@ -217,7 +225,7 @@
             </div>
 
             <div style="display:flex; gap:10px; align-items:center;">
-              {% if is_admin %}
+              {% if is_admin_or_moderator %}
               <button id="markFixedBtn" class="btn primary" type="button" title="Toggle brush to mark fixed" aria-label="Toggle brush to mark fixed" style="padding: 8px 10px;">
                 <img id="markFixedIcon" alt="Mark fixed brush" style="width: 32px; height: 32px; display: block;" />
               </button>
@@ -1041,7 +1049,11 @@
           }
           
           try {
-              const res = await fetch(`/api/reports/${id}/flag`, {
+              // Check if user is admin or moderator to use bypass endpoint
+              const isAdminOrModerator = IS_ADMIN_OR_MODERATOR;
+              const endpoint = isAdminOrModerator ? `/reports/${id}/flag-false` : `/api/reports/${id}/flag`;
+              
+              const res = await fetch(endpoint, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' }
               });
@@ -1057,20 +1069,27 @@
                       btn.classList.add('flagged');
                   });
                   
-                  // Check if auto-flagged
-                  if (data.auto_flagged) {
-                      alert(`Report has been automatically marked as false (${data.flag_count}/${data.threshold} flags reached). The map will now reload.`);
+                  if (isAdminOrModerator) {
+                      // Admin/Moderator bypass - report is immediately flagged as false
+                      alert('Report has been flagged as false and removed. The map will now reload.');
                       // Refresh map to hide the marker
                       fetchReports();
                   } else {
-                      alert(`Report flagged successfully (${data.flag_count}/${data.threshold} flags)`);
+                      // Community flagging - check if auto-flagged
+                      if (data.auto_flagged) {
+                          alert(`Report has been automatically marked as false (${data.flag_count}/${data.threshold} flags reached). The map will now reload.`);
+                          // Refresh map to hide the marker
+                          fetchReports();
+                      } else {
+                          alert(`Report flagged successfully (${data.flag_count}/${data.threshold} flags)`);
+                      }
                   }
               } else {
                   // Handle error responses
                   if (data.error === 'Already flagged') {
                       alert('You have already flagged this report.');
                   } else {
-                      alert(data.error || 'Failed to flag report. Please try again.');
+                      alert(data.error || data.message || 'Failed to flag report. Please try again.');
                   }
               }
           } catch (e) {

@@ -2556,6 +2556,11 @@ def reports_page():
     current_user = _login_required()
     if not isinstance(current_user, User):
         return current_user
+    
+    # Prevent admins and moderators from submitting reports
+    if _is_admin_or_moderator(current_user):
+        abort(403)
+    
     is_admin = _is_admin(current_user)
     csrf_token = _get_csrf_token()
 
@@ -2701,6 +2706,10 @@ def my_reports_page():
     current_user = _require_role('user')
     if not isinstance(current_user, User):
         return current_user
+    
+    # Prevent admins and moderators from accessing my reports
+    if _is_admin_or_moderator(current_user):
+        abort(403)
 
     q = (request.args.get('q') or '').strip()
     type_filter = (request.args.get('type') or '').strip().lower()
@@ -3577,12 +3586,48 @@ def flag_report(report_id):
         author = User.query.get(report.user_id)
         if author:
             author.false_reports_count += 1
+            
+            # Get false report threshold for account locking
+            false_report_threshold = 5
+            try:
+                s_val = Settings.query.filter_by(key='false_report_threshold').first()
+                if s_val and s_val.value:
+                    false_report_threshold = int(s_val.value)
+            except Exception:
+                pass
+            
+            # Check if user should be locked
+            if author.false_reports_count >= false_report_threshold:
+                author.status = 'locked'
+                # Notify Admins about auto-lock
+                try:
+                    admins = User.query.filter_by(role='admin').all()
+                    for admin in admins:
+                        admin_msg = f"User {author.username} has been automatically locked after submitting {author.false_reports_count} false reports."
+                        admin_notif = Notification(
+                            user_id=admin.id,
+                            title="User Auto-Locked",
+                            message=admin_msg,
+                            link=url_for('users_page', q=author.username)
+                        )
+                        db.session.add(admin_notif)
+                except Exception:
+                    pass
+            
+            # Calculate remaining flags before account suspension
+            remaining_flags = max(0, false_report_threshold - author.false_reports_count)
+            
+            # Create detailed notification for author with count information
+            if author.status == 'locked':
+                msg = f"Your report '{report.title}' has been flagged as a false report and removed by the community. Your account has been locked due to submitting {author.false_reports_count} false reports."
+            else:
+                msg = f"Your report '{report.title}' has been flagged as a false report and removed by the community. You have submitted {author.false_reports_count} false report(s). {remaining_flags} more false report(s) will result in account suspension. Please ensure your reports are accurate."
         
         # Create notification for author
         notif = Notification(
             user_id=report.user_id,
             title='Report Flagged as False',
-            message=f'Your report "{report.title}" has been flagged as false by the community.',
+            message=msg,
             link='/my-reports'
         )
         db.session.add(notif)
@@ -3668,7 +3713,7 @@ def manual_fix_report(report_id):
 
 @app.route('/reports/<int:report_id>/flag-false', methods=['POST'])
 def flag_report_false(report_id):
-    current_user = _require_admin()
+    current_user = _require_admin_or_moderator()
     
     report = Report.query.get_or_404(report_id)
     if report.is_false_report:
@@ -3710,10 +3755,13 @@ def flag_report_false(report_id):
                 except Exception:
                     pass
             
-            # 4. Notify the user
-            msg = f"Your report '{report.title}' has been flagged as a false report and removed. Please ensure your reports are accurate. Repeated false reports may lead to account suspension."
+            # 4. Notify the user with count information
+            remaining_flags = max(0, threshold - user.false_reports_count)
+            
             if user.status == 'locked':
-                msg += " Your account has been locked due to excessive false reports."
+                msg = f"Your report '{report.title}' has been flagged as a false report and removed. Your account has been locked due to submitting {user.false_reports_count} false reports."
+            else:
+                msg = f"Your report '{report.title}' has been flagged as a false report and removed. You have submitted {user.false_reports_count} false report(s). {remaining_flags} more false report(s) will result in account suspension. Please ensure your reports are accurate."
                 
             notif = Notification(
                 user_id=user.id,

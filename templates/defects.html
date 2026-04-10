@@ -53,6 +53,9 @@
                     <a href="/admin/backups">Backup Management</a>
                     <a href="/analytics">Analytics</a>
                     <a href="/activity-logs">Activity Logs</a>
+                {% elif is_admin_or_moderator %}
+                    <a href="/map">Map</a>
+                    <a class="active" href="/defects">Defects Management</a>
                 {% else %}
                     <a href="/map">Map</a>
                     <a class="active" href="/defects">Defects Management</a>
@@ -75,6 +78,9 @@
           <a href="/admin/backups">Backup Management</a>
           <a href="/analytics">Analytics</a>
           <a href="/activity-logs">Activity Logs</a>
+          {% elif is_admin_or_moderator %}
+          <a href="/map">Map</a>
+          <a class="active" href="/defects">Defects Management</a>
           {% else %}
           <a href="/map">Map</a>
           <a class="active" href="/defects">Defects Management</a>
