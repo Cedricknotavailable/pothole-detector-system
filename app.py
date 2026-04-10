@@ -4506,6 +4506,7 @@ def load_geojson_polygons(area_type='province'):
     """
     Loads GeoJSON data and returns a dictionary of polygons keyed by area name.
     Supported types: 'province', 'municipality', 'region'
+    Enhanced with validation and error handling for accurate geographic filtering.
     """
     global _geojson_cache
     if area_type in _geojson_cache:
@@ -4516,16 +4517,45 @@ def load_geojson_polygons(area_type='province'):
         filename = 'municipalities.json'
     
     filepath = os.path.join(current_app.static_folder, 'data', filename)
+    
+    # Enhanced validation: verify GeoJSON files exist and are readable
     if not os.path.exists(filepath):
+        print(f"Warning: GeoJSON file not found: {filepath}")
+        return {}
+    
+    if not os.path.isfile(filepath):
+        print(f"Warning: GeoJSON path is not a file: {filepath}")
+        return {}
+    
+    if not os.access(filepath, os.R_OK):
+        print(f"Warning: GeoJSON file is not readable: {filepath}")
         return {}
 
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
+        # Validate GeoJSON structure
+        if not isinstance(data, dict):
+            print(f"Warning: Invalid GeoJSON format in {filename} - not a dictionary")
+            return {}
+        
+        features = data.get('features', [])
+        if not isinstance(features, list):
+            print(f"Warning: Invalid GeoJSON format in {filename} - features is not a list")
+            return {}
+        
         polygons = {}
-        for feature in data.get('features', []):
+        processed_count = 0
+        
+        for feature in features:
+            if not isinstance(feature, dict):
+                continue
+                
             props = feature.get('properties', {})
+            if not isinstance(props, dict):
+                continue
+                
             # Determine name based on type
             name = ''
             if area_type == 'province':
@@ -4537,15 +4567,38 @@ def load_geojson_polygons(area_type='province'):
             
             if not name:
                 continue
-                
+            
             geometry = feature.get('geometry')
-            if geometry:
-                polygons[name] = geometry
+            if not geometry or not isinstance(geometry, dict):
+                print(f"Warning: Missing or invalid geometry for {area_type} '{name}'")
+                continue
+            
+            # Validate geometry structure
+            geom_type = geometry.get('type')
+            coords = geometry.get('coordinates')
+            if not geom_type or not coords:
+                print(f"Warning: Invalid geometry structure for {area_type} '{name}'")
+                continue
+                
+            # Store both original name and normalized name (without spaces) as keys
+            polygons[name] = geometry
+            
+            # Also store normalized version (remove spaces) for better matching
+            normalized_name = name.replace(' ', '')
+            if normalized_name != name:
+                polygons[normalized_name] = geometry
+            
+            processed_count += 1
         
+        print(f"Loaded {processed_count} {area_type} geometries from {filename}")
         _geojson_cache[area_type] = polygons
         return polygons
+        
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON in {filename}: {e}")
+        return {}
     except Exception as e:
-        print(f"Error loading GeoJSON: {e}")
+        print(f"Error loading GeoJSON from {filename}: {e}")
         return {}
 
 def point_in_polygon(point, polygon_coords):
@@ -4593,15 +4646,26 @@ def is_point_in_geometry(lat, lng, geometry):
 def is_point_in_geometry_optimized(lat, lng, geometry):
     """
     Optimized version of is_point_in_geometry with performance improvements for Render hosting.
-    Includes bounds checking and simplified polygon processing.
+    Includes bounds checking, coordinate system validation, and simplified polygon processing.
     """
     if not lat or not lng or not geometry:
         return False
     
     try:
-        # Convert to float to ensure numeric comparison
+        # Convert to float to ensure numeric comparison and validate coordinates
         lat = float(lat)
         lng = float(lng)
+        
+        # Coordinate system validation for Philippines
+        # Philippines latitude range: approximately 4.5°N to 21.5°N
+        # Philippines longitude range: approximately 116°E to 127°E
+        if not (4.0 <= lat <= 22.0):
+            print(f"Warning: Latitude {lat} outside Philippines range (4-22°N)")
+            return False
+        
+        if not (115.0 <= lng <= 128.0):
+            print(f"Warning: Longitude {lng} outside Philippines range (115-128°E)")
+            return False
         
         geom_type = geometry.get('type')
         coords = geometry.get('coordinates')
@@ -4626,9 +4690,13 @@ def is_point_in_geometry_optimized(lat, lng, geometry):
             
         return False
         
-    except (ValueError, TypeError, IndexError):
+    except (ValueError, TypeError, IndexError) as e:
+        print(f"Warning: Coordinate validation failed for ({lat}, {lng}): {e}")
         # Fallback to original function on any error
-        return is_point_in_geometry(lat, lng, geometry)
+        try:
+            return is_point_in_geometry(lat, lng, geometry)
+        except:
+            return False
 
 def _quick_bounds_check(lat, lng, polygon_coords):
     """
@@ -4697,110 +4765,114 @@ def point_in_polygon_optimized(point, polygon_coords):
 
 def filter_by_area(query, model, area_name, area_type='province'):
     """
-    Filters a SQLAlchemy query by checking if the model's lat/lng are inside the area.
-    Optimized for Render hosting with intelligent area-specific sampling.
-    """
-    if not area_name:
-        return query.all()
+    Lazy Geographic Filtering: Fast sampling for "All Areas", accurate filtering for specific areas.
     
-    # Detect if we're running on Render or similar resource-constrained environment
+    Strategy:
+    - When area_name is None or "all": Return fast sample data
+    - When specific area is selected: Perform accurate geographic filtering
+    Enhanced with improved area name matching and error handling.
+    """
+    # Fast path: No area specified or "All Areas" selected (case-insensitive)
+    if not area_name or area_name.lower() in ['all', '']:
+        print(f"Fast path: Returning sample data for general overview")
+        # Return a reasonable sample for general analytics
+        return query.limit(500).all()
+    
+    # Detect environment for optimization settings
     is_render_hosting = bool(
         os.environ.get('RENDER') or 
         os.environ.get('RENDER_SERVICE_ID') or
-        os.environ.get('PORT') == '10000'  # Render's default port
+        os.environ.get('PORT') == '10000'
     )
     
-    # SMART RENDER OPTIMIZATION: Use area-specific sampling instead of complex geographic filtering
-    if is_render_hosting and area_type in ['province', 'municipality']:
-        print(f"Render optimization: Using area-specific sampling for {area_type} '{area_name}'")
-        
-        # Get area-specific sample using simple database filtering
-        # This provides different results for different areas without complex polygon calculations
-        sample_size = {
-            'province': 200,      # Reasonable sample for provinces
-            'municipality': 100   # Smaller sample for municipalities
-        }.get(area_type, 100)
-        
-        # Use area name as a seed for consistent but area-specific sampling
-        # This ensures different areas return different results
-        area_hash = hash(area_name) % 1000000  # Create a consistent hash from area name
-        
-        # Get records with area-specific offset to ensure different results per area
-        # Use modulo to create pseudo-random but consistent sampling per area
-        try:
-            all_records = query.all()
-            if not all_records:
-                return []
-            
-            total_records = len(all_records)
-            if total_records <= sample_size:
-                return all_records
-            
-            # Create area-specific sampling pattern
-            # Different areas will get different starting points and intervals
-            start_offset = area_hash % max(1, total_records - sample_size)
-            step_size = max(1, (total_records - start_offset) // sample_size)
-            
-            # Sample records with area-specific pattern
-            sampled_records = []
-            current_index = start_offset
-            
-            for _ in range(sample_size):
-                if current_index < total_records:
-                    sampled_records.append(all_records[current_index])
-                    current_index += step_size
-                    if current_index >= total_records:
-                        # Wrap around if needed
-                        current_index = (current_index - total_records) + start_offset
-                else:
-                    break
-            
-            print(f"Area-specific sampling: {len(sampled_records)} records for '{area_name}'")
-            return sampled_records
-            
-        except Exception as e:
-            print(f"Area sampling error for {area_name}: {e}")
-            return query.limit(sample_size).all()
+    print(f"Accurate path: Performing geographic filtering for {area_type} '{area_name}'")
     
-    # For localhost/development or regions, perform geographic filtering
     try:
-        # Get all records first with minimal memory footprint
+        # Get all records with coordinates
         all_records = query.with_entities(model.id, model.latitude, model.longitude).all()
         
-        # Early return if no records
         if not all_records:
+            print(f"No records found in database for geographic filtering")
             return []
         
-        # Set limits based on environment and area type
+        # Apply progressive limits based on environment and complexity
         if is_render_hosting:
+            # More aggressive limits for Render to prevent timeouts
             max_records = {
-                'region': 1000,      # Regions work on Render
-                'province': 500,     # Reduced limit for provinces
-                'municipality': 200  # Very small limit for municipalities
-            }.get(area_type, 500)
-            timeout_seconds = 10  # Shorter timeout on Render
+                'region': 2000,      # Regions are simpler
+                'province': 1500,    # Provinces are medium complexity  
+                'municipality': 800  # Municipalities are most complex
+            }.get(area_type, 1000)
+            timeout_seconds = 30  # 30 second timeout for Render
+            batch_size = 25       # Smaller batches for memory management
         else:
+            # Higher limits for localhost development
             max_records = {
-                'region': 5000,      # Higher limits for localhost
-                'province': 3000,
-                'municipality': 1000
-            }.get(area_type, 2000)
-            timeout_seconds = 60  # Longer timeout for localhost
+                'region': 10000,
+                'province': 5000,
+                'municipality': 2000
+            }.get(area_type, 3000)
+            timeout_seconds = 120  # 2 minute timeout for localhost
+            batch_size = 100       # Larger batches for localhost
         
-        # Limit records if dataset is too large
+        # Limit dataset size if too large
         if len(all_records) > max_records:
-            print(f"Limiting geographic filtering to {max_records} records for {area_type}")
+            print(f"Limiting geographic filtering to {max_records} records for {area_type} '{area_name}'")
             all_records = all_records[:max_records]
         
-        # Load geometry with caching
+        # Load geometry data with enhanced validation
         polygons = load_geojson_polygons(area_type)
+        
+        if not polygons:
+            print(f"Warning: No geometry data loaded for {area_type}. GeoJSON file may be missing or invalid.")
+            # Fallback to sample data when geometry data is completely missing
+            fallback_size = 300
+            print(f"Fallback: Returning {fallback_size} sample records due to missing geometry data")
+            return query.limit(fallback_size).all()
+        
+        # Improved area name matching: try multiple variations
+        geometry = None
+        original_area_name = area_name
+        
+        # Try exact match first
         geometry = polygons.get(area_name)
         
+        # If no exact match, try normalized name (remove spaces)
         if not geometry:
-            print(f"Warning: No geometry found for {area_name} in {area_type}")
-            return query.all()
+            normalized_name = area_name.replace(' ', '')
+            geometry = polygons.get(normalized_name)
+            if geometry:
+                print(f"Found geometry using normalized name: '{area_name}' -> '{normalized_name}'")
         
-        # Filter IDs using optimized point-in-polygon check
+        # If still no match, try case-insensitive matching
+        if not geometry:
+            area_name_lower = area_name.lower()
+            for key, geom in polygons.items():
+                if key.lower() == area_name_lower:
+                    geometry = geom
+                    print(f"Found geometry using case-insensitive match: '{area_name}' -> '{key}'")
+                    break
+        
+        # If still no match, try case-insensitive normalized matching
+        if not geometry:
+            normalized_lower = area_name.replace(' ', '').lower()
+            for key, geom in polygons.items():
+                if key.lower() == normalized_lower:
+                    geometry = geom
+                    print(f"Found geometry using case-insensitive normalized match: '{area_name}' -> '{key}'")
+                    break
+        
+        if not geometry:
+            print(f"Warning: No geometry found for {area_type} '{original_area_name}' in GeoJSON data")
+            print(f"Available {area_type} names: {list(polygons.keys())[:10]}...")  # Show first 10 for debugging
+            # Fallback to sample data when specific geometry is missing (preserves existing behavior)
+            fallback_size = 300
+            print(f"Fallback: Returning {fallback_size} sample records due to missing geometry for specific area")
+            return query.limit(fallback_size).all()
+        
+        print(f"Processing {len(all_records)} records for geographic filtering...")
+        
+        # Perform geographic filtering with optimizations
         valid_ids = []
         processed_count = 0
         start_time = time.time()
@@ -4811,32 +4883,55 @@ def filter_by_area(query, model, area_name, area_type='province'):
                 continue
             
             # Timeout protection
-            if time.time() - start_time > timeout_seconds:
-                print(f"Geographic filtering timeout after {processed_count} records")
+            elapsed_time = time.time() - start_time
+            if elapsed_time > timeout_seconds:
+                print(f"Geographic filtering timeout after {processed_count} records ({elapsed_time:.1f}s)")
                 break
-                
-            # Memory management: process in batches
-            if processed_count > 0 and processed_count % 50 == 0:
+            
+            # Memory management: garbage collection in batches
+            if processed_count > 0 and processed_count % batch_size == 0:
                 import gc
                 gc.collect()
+                
+                # Progress logging for long operations
+                if processed_count % (batch_size * 4) == 0:
+                    progress = (processed_count / len(all_records)) * 100
+                    print(f"Geographic filtering progress: {processed_count}/{len(all_records)} ({progress:.1f}%)")
             
-            # Quick bounds check before expensive polygon check
-            if is_point_in_geometry_optimized(lat, lng, geometry):
-                valid_ids.append(record_id)
+            # Perform optimized point-in-polygon check with coordinate system validation
+            try:
+                if is_point_in_geometry_optimized(lat, lng, geometry):
+                    valid_ids.append(record_id)
+            except Exception as e:
+                print(f"Warning: Point-in-polygon calculation failed for record {record_id} at ({lat}, {lng}): {e}")
+                continue
             
             processed_count += 1
         
-        # Return filtered records using IDs
+        # Return results
         if valid_ids:
+            result_count = len(valid_ids)
+            elapsed_time = time.time() - start_time
+            print(f"Geographic filtering completed: {result_count} records found in {elapsed_time:.1f}s")
             return query.filter(model.id.in_(valid_ids)).all()
         else:
+            print(f"No records found within {original_area_name} boundaries")
             return []
             
     except Exception as e:
         print(f"Geographic filtering error for {area_name} ({area_type}): {e}")
-        # Return a limited sample instead of all records to prevent memory issues
-        sample_size = 200 if is_render_hosting else 500
-        return query.limit(sample_size).all()
+        
+        # Preserve existing fallback behavior for error conditions
+        if is_render_hosting:
+            # On Render, return limited sample to prevent further errors
+            fallback_size = 200
+            print(f"Render fallback: Returning {fallback_size} sample records")
+            return query.limit(fallback_size).all()
+        else:
+            # On localhost, return more data for development debugging
+            fallback_size = 500
+            print(f"Localhost fallback: Returning {fallback_size} sample records")
+            return query.limit(fallback_size).all()
 
 def filter_by_area_precise(query, model, area_name, area_type='province'):
     """
