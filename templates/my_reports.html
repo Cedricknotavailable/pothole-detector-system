@@ -292,8 +292,11 @@
             <div class="range">Showing {{ start }}–{{ end }} of {{ total }}</div>
 
             <div class="pager">
-              <a class="page-btn" href="{{ url_for('my_reports_page', q=q, type=type_filter, status=status_filter, sort=sort, per_page=per_page, page=1) }}">First</a>
-              <a class="page-btn" href="{{ url_for('my_reports_page', q=q, type=type_filter, status=status_filter, sort=sort, per_page=per_page, page=(page-1 if page>1 else 1)) }}">Prev</a>
+              {% if page > 1 %}
+                <a class="page-btn" href="{{ url_for('my_reports_page', q=q, type=type_filter, status=status_filter, sort=sort, per_page=per_page, page=(page-1)) }}">Prev</a>
+              {% else %}
+                <span class="page-btn" style="opacity: 0.4; pointer-events: none;">Prev</span>
+              {% endif %}
 
               {% set start_page = (page - 2) if (page - 2) > 1 else 1 %}
               {% set end_page = (page + 2) if (page + 2) < pages else pages %}
@@ -301,8 +304,11 @@
                 <a class="page-num {% if p == page %}active{% endif %}" href="{{ url_for('my_reports_page', q=q, type=type_filter, status=status_filter, sort=sort, per_page=per_page, page=p) }}">{{ p }}</a>
               {% endfor %}
 
-              <a class="page-btn" href="{{ url_for('my_reports_page', q=q, type=type_filter, status=status_filter, sort=sort, per_page=per_page, page=(page+1 if page<pages else pages)) }}">Next</a>
-              <a class="page-btn" href="{{ url_for('my_reports_page', q=q, type=type_filter, status=status_filter, sort=sort, per_page=per_page, page=pages) }}">Last</a>
+              {% if page < pages %}
+                <a class="page-btn" href="{{ url_for('my_reports_page', q=q, type=type_filter, status=status_filter, sort=sort, per_page=per_page, page=(page+1)) }}">Next</a>
+              {% else %}
+                <span class="page-btn" style="opacity: 0.4; pointer-events: none;">Next</span>
+              {% endif %}
             </div>
           </div>
         </div>

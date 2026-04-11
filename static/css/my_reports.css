@@ -240,11 +240,16 @@
         align-items: center;
         padding: 16px 12px;
         margin: 0 12px 12px 12px;
+        display: flex !important;
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
     }
     
     .pagination .range {
         font-size: 12px;
         color: #64748b;
+        font-weight: 500;
     }
     
     .pager {
@@ -252,6 +257,7 @@
         justify-content: center;
         gap: 6px;
         width: 100%;
+        display: flex !important;
     }
     
     .page-btn,
@@ -259,18 +265,29 @@
         min-width: 38px;
         min-height: 38px;
         height: 38px;
-        display: flex;
+        display: flex !important;
         align-items: center;
         justify-content: center;
         font-size: 13px;
         padding: 8px 10px;
         border-radius: 6px;
         font-weight: 600;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        color: #475569;
+        text-decoration: none;
+        cursor: pointer;
     }
     
     .page-btn {
         font-size: 12px;
         padding: 8px 12px;
+    }
+    
+    .page-num.active {
+        background: var(--accent, #3b82f6);
+        color: #fff;
+        border-color: var(--accent, #3b82f6);
     }
 }
 
