@@ -388,6 +388,15 @@ class Report(db.Model):
             return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(val))
         except Exception:
             return ''
+    
+    @property
+    def fixed_at_iso(self) -> str:
+        try:
+            if self.fixed_at:
+                return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(int(self.fixed_at)))
+            return ''
+        except Exception:
+            return ''
 
 
 class Reaction(db.Model):

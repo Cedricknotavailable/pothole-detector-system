@@ -143,9 +143,9 @@
                     <th style="width: 25%;">Defect Details</th>
                     <th style="width: 15%;">Location</th>
                     <th style="width: 15%;">Submitted</th>
-                    <th style="width: 15%;">Updated</th>
+                    <th style="width: 15%;">Status</th>
                     <th style="width: 15%;">Reactions</th>
-                    <th style="width: 15%; text-align: right;">Status</th>
+                    <th style="width: 15%; text-align: right;">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -181,10 +181,10 @@
                         </td>
                         <td>
                           <div class="timestamp-cell" style="font-size: 13px; color: #334155;">
-                            {% if r.status_updated_at and r.status_updated_at != r.created_at %}
-                              {{ r.status_updated_at_iso }}
+                            {% if r.is_fixed and r.fixed_at %}
+                              <span style="color: #10b981; font-weight: 600;">Fixed:</span> {{ r.fixed_at_iso }}
                             {% else %}
-                              <span style="color: #94a3b8;">-</span>
+                              <span style="color: #64748b; font-weight: 600;">Submitted:</span> {{ r.created_at_iso }}
                             {% endif %}
                           </div>
                         </td>
@@ -254,12 +254,12 @@
                         {% endif %}
                       </div>
                       <div class="report-card-row">
-                        <span class="label">Updated:</span>
+                        <span class="label">Status:</span>
                         <span>
-                          {% if r.status_updated_at and r.status_updated_at != r.created_at %}
-                            {{ r.status_updated_at_iso }}
+                          {% if r.is_fixed and r.fixed_at %}
+                            <span style="color: #10b981; font-weight: 600;">Fixed:</span> {{ r.fixed_at_iso }}
                           {% else %}
-                            <span style="color: #94a3b8;">-</span>
+                            <span style="color: #64748b; font-weight: 600;">Submitted:</span> {{ r.created_at_iso }}
                           {% endif %}
                         </span>
                       </div>
