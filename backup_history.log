@@ -5,3 +5,4 @@
 {"user":"testuser1","operation":"import","filename":"backup_20260326_054702.db","timestamp":1774504713,"status":"success"}
 {"user":"testuser1","operation":"export","backup_type":"manual","filename":"manual_20260409_175201.db","timestamp":1775728321,"status":"success"}
 {"user":"system","operation":"export","backup_type":"monthly","filename":"full_20260409_183236.db","timestamp":1775730756,"status":"success"}
+{"user":"system","operation":"export","backup_type":"daily","filename":"incremental_20260411_105813.db","timestamp":1775876293,"status":"success"}

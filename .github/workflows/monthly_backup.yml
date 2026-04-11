@@ -2,8 +2,8 @@ name: Monthly Full Backup
 
 on:
   schedule:
-    # Run monthly on the 1st at 3:00 AM Philippine Time (19:00 UTC = 03:00 PHT/UTC+8)
-    - cron: '0 19 1 * *'
+    # Run monthly on the 1st at 12:00 AM PST (08:00 UTC = 00:00 PST/UTC-8)
+    - cron: '0 8 1 * *'
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
