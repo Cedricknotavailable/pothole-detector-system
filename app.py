@@ -2733,6 +2733,8 @@ def my_reports_page():
     start_date = (request.args.get('start_date') or '').strip()
     end_date = (request.args.get('end_date') or '').strip()
     sort = (request.args.get('sort') or 'date_desc').strip().lower()
+    mobile_ajax = request.args.get('mobile_ajax') == '1'
+    
     try:
         page = max(1, int(request.args.get('page', '1')))
     except Exception:
@@ -2811,6 +2813,24 @@ def my_reports_page():
     reports = query.limit(per_page).offset(offset).all()
     start = 0 if total == 0 else offset + 1
     end = 0 if total == 0 else min(total, offset + len(reports))
+
+    # Mobile AJAX request - return JSON
+    if mobile_ajax:
+        reports_data = []
+        for r in reports:
+            reports_data.append({
+                'id': r.id,
+                'obstruction_type': r.obstruction_type,
+                'photo_path': r.photo_path,
+                'latitude': r.latitude,
+                'longitude': r.longitude,
+                'created_at_iso': r.created_at_iso,
+                'fixed_at_iso': r.fixed_at_iso if r.is_fixed else None,
+                'is_fixed': r.is_fixed,
+                'thumbs_up_count': r.thumbs_up_count,
+                'thumbs_down_count': r.thumbs_down_count
+            })
+        return jsonify({'reports': reports_data, 'page': page, 'pages': pages, 'total': total})
 
     return render_template(
         '/my_reports.html',

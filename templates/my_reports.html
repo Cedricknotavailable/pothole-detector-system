@@ -73,8 +73,23 @@
           </div>
 
           <div class="controls card">
-            <form class="controls-inner" method="get" action="{{ url_for('my_reports_page') }}">
-              <div class="control-row my-reports-filters">
+            <!-- Mobile: Collapsible filters dropdown -->
+            <button type="button" class="mobile-filter-toggle" id="filterToggle" aria-expanded="false">
+              <span class="filter-toggle-text">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+                Filters
+                {% if q or type_filter or status_filter or start_date or end_date or sort != 'date_desc' or per_page != 10 %}
+                  <span class="filter-active-badge">Active</span>
+                {% endif %}
+              </span>
+              <svg class="filter-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <form class="controls-inner" method="get" action="{{ url_for('my_reports_page') }}" id="filtersForm">
+              <div class="control-row my-reports-filters" id="filtersContent">
                 <div class="control">
                   <label class="control-label" for="q">Search</label>
                   <input id="q" class="control-input" type="text" name="q" value="{{ q or '' }}" placeholder="Search by type or notes" />
@@ -288,6 +303,15 @@
             </div>
           </div>
 
+          <!-- Mobile infinite scroll loading indicator -->
+          <div class="mobile-loading hidden" id="mobileLoading">
+            <span>Loading more reports...</span>
+          </div>
+          <div class="mobile-end-message hidden" id="mobileEndMessage">
+            <div style="font-weight: 600; margin-bottom: 4px;">All reports loaded</div>
+            <div style="font-size: 12px;">Showing all {{ total }} report{{ 's' if total != 1 else '' }}</div>
+          </div>
+
           <div class="pagination">
             <div class="range">Showing {{ start }}–{{ end }} of {{ total }}</div>
 
@@ -332,8 +356,190 @@
               alert('Network error');
           }
       }
+      
+      // Mobile filter toggle
+      (function() {
+        const filterToggle = document.getElementById('filterToggle');
+        const filtersContent = document.getElementById('filtersContent');
+        
+        if (filterToggle && filtersContent) {
+          filterToggle.addEventListener('click', function() {
+            const isExpanded = this.getAttribute('aria-expanded') === 'true';
+            this.setAttribute('aria-expanded', !isExpanded);
+            filtersContent.classList.toggle('expanded');
+          });
+        }
+      })();
     </script>
     <script src="{{ url_for('static', filename='js/mobile-nav.js') }}"></script>
+    <script>
+      // Mobile infinite scroll for My Reports
+      (function() {
+        // Only run on mobile
+        function isMobile() {
+          return window.innerWidth <= 640;
+        }
+        
+        if (!isMobile()) return;
+        
+        let currentPage = {{ page }};
+        const totalPages = {{ pages }};
+        let isLoading = false;
+        
+        const reportCards = document.querySelector('.report-cards');
+        const mobileLoading = document.getElementById('mobileLoading');
+        const mobileEndMessage = document.getElementById('mobileEndMessage');
+        
+        if (!reportCards) return;
+        
+        // Get current filter parameters from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        function loadMoreReports() {
+          if (isLoading || currentPage >= totalPages) {
+            if (currentPage >= totalPages && totalPages > 1) {
+              mobileEndMessage.classList.add('visible');
+            }
+            return;
+          }
+          
+          isLoading = true;
+          mobileLoading.classList.remove('hidden');
+          mobileLoading.classList.add('visible');
+          
+          const nextPage = currentPage + 1;
+          
+          // Build URL with all current filters
+          const params = new URLSearchParams(window.location.search);
+          params.set('page', nextPage);
+          params.set('mobile_ajax', '1');
+          
+          const url = `${window.location.pathname}?${params.toString()}`;
+          
+          fetch(url)
+            .then(res => {
+              if (!res.ok) throw new Error('Network response was not ok');
+              return res.json();
+            })
+            .then(data => {
+              if (data.reports && data.reports.length > 0) {
+                data.reports.forEach(report => {
+                  const card = createReportCard(report);
+                  reportCards.appendChild(card);
+                });
+                currentPage = nextPage;
+                
+                // Re-observe the new last card
+                setTimeout(() => {
+                  observeLastCard();
+                }, 100);
+              }
+              
+              if (currentPage >= totalPages) {
+                mobileEndMessage.classList.add('visible');
+              }
+            })
+            .catch(err => {
+              console.error('Error loading reports:', err);
+              mobileLoading.innerHTML = '<span style="color: #ef4444;">Error loading reports. Please refresh.</span>';
+            })
+            .finally(() => {
+              isLoading = false;
+              mobileLoading.classList.remove('visible');
+              mobileLoading.classList.add('hidden');
+            });
+        }
+        
+        function createReportCard(r) {
+          const card = document.createElement('div');
+          card.className = 'report-card';
+          
+          const statusHtml = r.is_fixed && r.fixed_at_iso
+            ? `<span style="color: #10b981; font-weight: 600;">Fixed:</span> ${r.fixed_at_iso}`
+            : `<span style="color: #64748b; font-weight: 600;">Submitted:</span> ${r.created_at_iso}`;
+          
+          const photoHtml = r.photo_path 
+            ? `<a class="report-card-thumb" href="/static/${r.photo_path}" target="_blank" rel="noopener"><img src="/static/${r.photo_path}" alt="Evidence"></a>`
+            : `<div class="report-card-thumb"><span>No Img</span></div>`;
+          
+          const locationHtml = r.latitude && r.longitude 
+            ? `<a href="/map?lat=${r.latitude}&lng=${r.longitude}" class="coords-link">${r.latitude.toFixed(5)}, ${r.longitude.toFixed(5)}</a>`
+            : '<span style="color: #94a3b8;">No location</span>';
+          
+          const badgeHtml = r.is_fixed ? '<span class="badge badge--active">Fixed</span>' : '';
+          
+          const actionsHtml = !r.is_fixed 
+            ? `<div class="report-card-actions"><button class="mini-btn warn" onclick="markAsFixed(${r.id})">Mark Fixed</button></div>`
+            : '';
+          
+          card.innerHTML = `
+            <div class="report-card-header">
+              ${photoHtml}
+              <div class="report-card-info">
+                <div class="report-card-type">${r.obstruction_type || 'Unknown'}</div>
+                <div class="report-card-date">${r.created_at_iso}</div>
+              </div>
+              ${badgeHtml}
+            </div>
+            <div class="report-card-body">
+              <div class="report-card-row">
+                <span class="label">Location:</span>
+                ${locationHtml}
+              </div>
+              <div class="report-card-row">
+                <span class="label">Status:</span>
+                <span>${statusHtml}</span>
+              </div>
+              <div class="report-card-row">
+                <span class="label">Reactions:</span>
+                <div class="reaction-pill">
+                  <span>👍 ${r.thumbs_up_count}</span>
+                  <span style="color:#cbd5e1">|</span>
+                  <span>👎 ${r.thumbs_down_count}</span>
+                </div>
+              </div>
+            </div>
+            ${actionsHtml}
+          `;
+          
+          return card;
+        }
+        
+        // Use Intersection Observer for lazy loading
+        let observer;
+        
+        function observeLastCard() {
+          if (observer) {
+            observer.disconnect();
+          }
+          
+          const cards = reportCards.querySelectorAll('.report-card');
+          if (cards.length === 0) return;
+          
+          const lastCard = cards[cards.length - 1];
+          
+          observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+              if (entry.isIntersecting && !isLoading && currentPage < totalPages) {
+                console.log('Last card visible, loading more...', {currentPage, totalPages});
+                loadMoreReports();
+              }
+            });
+          }, {
+            root: null,
+            rootMargin: '200px', // Trigger earlier
+            threshold: 0.1
+          });
+          
+          observer.observe(lastCard);
+        }
+        
+        // Initial observation
+        if (reportCards.querySelectorAll('.report-card').length > 0) {
+          observeLastCard();
+        }
+      })();
+    </script>
     <script>
       (function() {
         // Notifications Logic
