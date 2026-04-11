@@ -1065,7 +1065,14 @@ def login():
         # Check account status
         user_status = str(getattr(user, 'status', '') or '').strip().lower()
         if user_status == 'locked':
-            field_errors['username'] = ['Your account is locked. Please contact an administrator.']
+            # Check if locked due to false reports
+            false_report_count = getattr(user, 'false_reports_count', 0)
+            if false_report_count > 0:
+                field_errors['username'] = [
+                    f'Account Permanently Blocked: Your account has been permanently suspended due to submitting {false_report_count} false report(s). This decision is final and non-negotiable. False reporting violates our Terms of Service and undermines community trust.'
+                ]
+            else:
+                field_errors['username'] = ['Your account is locked. Please contact an administrator.']
             return render_template('/login.html', field_errors=field_errors, values={"username": identifier})
         elif user_status == 'suspended':
             now_ts = int(time.time())

@@ -23,7 +23,7 @@
         {% if field_errors and field_errors.get('username') %}
         <div class="field-error">
           {% for error in field_errors.username %}
-          <div class="error-message">{{ error }}</div>
+          <div class="error-message {% if 'Account Permanently Blocked' in error %}error-blocked{% endif %}">{{ error }}</div>
           {% endfor %}
         </div>
         {% endif %}

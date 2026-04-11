@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blocked Account Login - Visual Test</title>
+  <link rel="stylesheet" href="static/css/login.css">
+</head>
+<body>
+  <div class="card" role="region" aria-label="Login form">
+    <form class="card-inner" method="post" action="/login" novalidate>
+      <div class="field">
+        <label for="username">Username or Email</label>
+        <input 
+          id="username" 
+          name="username" 
+          type="text" 
+          class="input input-error" 
+          placeholder="Enter username or email" 
+          autocomplete="username" 
+          value="blocked_user" 
+        />
+        <div class="field-error">
+          <div class="error-message error-blocked">Account Permanently Blocked: Your account has been permanently suspended due to submitting 5 false report(s). This decision is final and non-negotiable. False reporting violates our Terms of Service and undermines community trust.</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <input 
+          id="password" 
+          name="password" 
+          type="password" 
+          class="input" 
+          placeholder="Password" 
+          autocomplete="current-password" 
+        />
+      </div>
+
+      <div class="actions">
+        <button class="btn" type="submit" disabled>Log in</button>
+      </div>
+    </form>
+
+    <div class="footer">
+      <small>Don't have an account? <a class="link" href="/register">Register</a></small>
+      <small><a class="link" href="/recover">Forgot Password?</a></small>
+    </div>
+  </div>
+
+  <div style="max-width: 520px; margin: 20px auto; padding: 20px; background: white; border-radius: 10px;">
+    <h3 style="margin-top: 0;">Visual Test: Blocked Account Error</h3>
+    <p><strong>What you should see:</strong></p>
+    <ul>
+      <li>Red border on the username field</li>
+      <li>Prominent error message with red left border</li>
+      <li>Light red background on the error message</li>
+      <li>Clear, professional language explaining the permanent block</li>
+      <li>Specific reason (5 false reports)</li>
+      <li>Non-negotiable language</li>
+      <li>Reference to Terms of Service violation</li>
+    </ul>
+    
+    <h4>Comparison with other error types:</h4>
+    <div style="margin: 10px 0;">
+      <div class="error-message">Standard error: Username or email not found</div>
+    </div>
+    <div style="margin: 10px 0;">
+      <div class="error-message error-blocked">Blocked account error: Account Permanently Blocked: Your account has been permanently suspended due to submitting 5 false report(s). This decision is final and non-negotiable. False reporting violates our Terms of Service and undermines community trust.</div>
+    </div>
+  </div>
+</body>
+</html>
