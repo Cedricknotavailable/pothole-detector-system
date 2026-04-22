@@ -1,0 +1,236 @@
+<!-- Reopen Report Modal -->
+<div id="reopenModal" class="modal" style="display: none;">
+  <div class="modal-overlay" onclick="closeReopenModal()"></div>
+  <div class="modal-content" style="max-width: 500px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Reopen Report</h3>
+      <button class="modal-close" onclick="closeReopenModal()" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom: 16px; color: #475569; font-size: 14px;">
+        To reopen this report, please upload a new photo showing that the issue persists or has recurred. This helps verify the current status.
+      </p>
+      
+      <form id="reopenForm" enctype="multipart/form-data">
+        <input type="hidden" id="reopenReportId" name="report_id" />
+        
+        <div class="form-group">
+          <label for="reopenPhoto" style="display: block; margin-bottom: 8px; font-weight: 600; color: #0f172a;">
+            New Photo <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="file" 
+            id="reopenPhoto" 
+            name="photo" 
+            accept="image/jpeg,image/jpg,image/png" 
+            required
+            style="display: block; width: 100%; padding: 10px; border: 2px dashed #cbd5e1; border-radius: 8px; cursor: pointer;"
+          />
+          <div style="font-size: 12px; color: #64748b; margin-top: 6px;">
+            Accepted formats: JPG, PNG (max 10MB)
+          </div>
+        </div>
+        
+        <div id="reopenPhotoPreview" style="display: none; margin-top: 12px;">
+          <img id="reopenPreviewImg" src="" alt="Preview" style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 1px solid #e2e8f0;" />
+        </div>
+        
+        <div id="reopenError" style="display: none; margin-top: 12px; padding: 12px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 8px; color: #991b1b; font-size: 14px;"></div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn secondary" onclick="closeReopenModal()">Cancel</button>
+      <button type="button" class="btn primary" onclick="submitReopen()" id="reopenSubmitBtn">
+        <span id="reopenBtnText">Reopen Report</span>
+        <span id="reopenBtnLoading" style="display: none;">Reopening...</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  position: relative;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-height: 90vh;
+  overflow-y: auto;
+  width: 90%;
+  max-width: 600px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.modal-close:hover {
+  background: #f1f5f9;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 16px 24px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+</style>
+
+<script>
+function openReopenModal(reportId) {
+  document.getElementById('reopenReportId').value = reportId;
+  document.getElementById('reopenModal').style.display = 'flex';
+  document.getElementById('reopenForm').reset();
+  document.getElementById('reopenPhotoPreview').style.display = 'none';
+  document.getElementById('reopenError').style.display = 'none';
+}
+
+function closeReopenModal() {
+  document.getElementById('reopenModal').style.display = 'none';
+}
+
+// Photo preview
+document.getElementById('reopenPhoto').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      document.getElementById('reopenPreviewImg').src = event.target.result;
+      document.getElementById('reopenPhotoPreview').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  } else {
+    document.getElementById('reopenPhotoPreview').style.display = 'none';
+  }
+});
+
+async function submitReopen() {
+  const reportId = document.getElementById('reopenReportId').value;
+  const photoInput = document.getElementById('reopenPhoto');
+  const errorDiv = document.getElementById('reopenError');
+  const submitBtn = document.getElementById('reopenSubmitBtn');
+  const btnText = document.getElementById('reopenBtnText');
+  const btnLoading = document.getElementById('reopenBtnLoading');
+  
+  // Validate photo
+  if (!photoInput.files || !photoInput.files[0]) {
+    errorDiv.textContent = 'Please select a photo to upload.';
+    errorDiv.style.display = 'block';
+    return;
+  }
+  
+  const file = photoInput.files[0];
+  
+  // Validate file type
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+  if (!allowedTypes.includes(file.type)) {
+    errorDiv.textContent = 'Please upload a JPG or PNG image.';
+    errorDiv.style.display = 'block';
+    return;
+  }
+  
+  // Validate file size (10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    errorDiv.textContent = 'Photo must be less than 10MB.';
+    errorDiv.style.display = 'block';
+    return;
+  }
+  
+  // Show loading state
+  submitBtn.disabled = true;
+  btnText.style.display = 'none';
+  btnLoading.style.display = 'inline';
+  errorDiv.style.display = 'none';
+  
+  try {
+    const formData = new FormData();
+    formData.append('photo', file);
+    
+    const res = await fetch(`/reports/${reportId}/reopen`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    const json = await res.json();
+    
+    if (json.success) {
+      closeReopenModal();
+      location.reload();
+    } else {
+      errorDiv.textContent = json.error || 'Failed to reopen report.';
+      errorDiv.style.display = 'block';
+    }
+  } catch (e) {
+    errorDiv.textContent = 'Network error. Please try again.';
+    errorDiv.style.display = 'block';
+  } finally {
+    submitBtn.disabled = false;
+    btnText.style.display = 'inline';
+    btnLoading.style.display = 'none';
+  }
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && document.getElementById('reopenModal').style.display === 'flex') {
+    closeReopenModal();
+  }
+});
+</script>

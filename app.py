@@ -3503,6 +3503,10 @@ def react_to_report(report_id):
         return jsonify({'error': 'Invalid reaction type'}), 400
 
     report = Report.query.get_or_404(report_id)
+    
+    # NEW: Only allow reactions on FIXED reports
+    if not report.is_fixed:
+        return jsonify({'error': 'Reactions are only available for fixed reports'}), 403
 
     # Check ownership
     if report.user_id == current_user.id:
@@ -3544,27 +3548,34 @@ def react_to_report(report_id):
                 report.thumbs_down_count += 1
             action = 'added'
 
-        # Auto-fix logic
-        auto_fix_threshold = 3
+        # Auto-reopen logic: If enough "Still Broken" reactions, reopen the report
+        auto_reopen_threshold = 3
         try:
             s_val = Settings.query.filter_by(key='auto_fix_threshold').first()
             if s_val and s_val.value:
-                auto_fix_threshold = int(s_val.value)
+                auto_reopen_threshold = int(s_val.value)
         except Exception:
             pass
 
-        if report.thumbs_up_count >= auto_fix_threshold and not report.is_fixed:
+        if report.thumbs_down_count >= auto_reopen_threshold and report.is_fixed:
             now_ts = int(time.time())
-            report.is_fixed = True
-            report.fixed_at = now_ts
-            report.status_updated_at = now_ts
+            report.is_fixed = False
+            report.fixed_at = None
+            report.status_updated_at = now_ts  # Reset status timestamp to prevent expiration
             
-            # Notify user
+            # Reset reaction counts when reopening to allow fresh community feedback
+            report.thumbs_up_count = 0
+            report.thumbs_down_count = 0
+            
+            # Delete all existing reactions for this report
+            Reaction.query.filter_by(report_id=report.id).delete()
+            
+            # Notify report owner
             try:
-                msg = f"Your report '{report.title}' has been automatically marked as fixed due to community confirmation!"
+                msg = f"Your report '{report.title}' has been automatically reopened due to community feedback indicating the issue persists."
                 notif = Notification(
                     user_id=report.user_id,
-                    title="Report Verified & Fixed",
+                    title="Report Reopened - Issue Persists",
                     message=msg,
                     link=url_for('my_reports_page')
                 )
@@ -3745,6 +3756,114 @@ def manual_fix_report(report_id):
         db.session.commit()
         
     return jsonify({'success': True, 'is_fixed': True})
+
+
+@app.route('/reports/<int:report_id>/reopen', methods=['POST'])
+def reopen_report(report_id):
+    """
+    Allow report owner to manually reopen a fixed report with new photo evidence.
+    Notifies admins and moderators with map link.
+    """
+    current_user = _login_required()
+    if not isinstance(current_user, User):
+        return jsonify({'error': 'Authentication required'}), 401
+        
+    report = Report.query.get_or_404(report_id)
+    
+    # Only owner can reopen their own report
+    if report.user_id != current_user.id:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    # Can only reopen fixed reports
+    if not report.is_fixed:
+        return jsonify({'error': 'Report is not fixed'}), 400
+    
+    # Require photo upload
+    if 'photo' not in request.files:
+        return jsonify({'error': 'Photo is required to reopen report'}), 400
+    
+    photo_file = request.files['photo']
+    if not photo_file or photo_file.filename == '':
+        return jsonify({'error': 'No photo selected'}), 400
+    
+    # Validate file extension
+    filename = secure_filename(photo_file.filename)
+    if not filename:
+        return jsonify({'error': 'Invalid filename'}), 400
+    
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    if ext not in ALLOWED_REPORT_IMAGE_EXTS:
+        return jsonify({'error': 'Invalid file type. Only JPG and PNG allowed'}), 400
+    
+    try:
+        # Save new photo
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        unique_filename = f"{uuid4().hex}.{ext}"
+        photo_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+        photo_file.save(photo_path)
+        
+        # Delete old photo if exists
+        if report.photo_path:
+            old_photo_full_path = os.path.join(app.root_path, 'static', report.photo_path)
+            if os.path.exists(old_photo_full_path):
+                try:
+                    os.remove(old_photo_full_path)
+                except Exception:
+                    pass
+        
+        # Update report
+        now_ts = int(time.time())
+        report.is_fixed = False
+        report.fixed_at = None
+        report.status_updated_at = now_ts
+        report.photo_path = f"uploads/reports/{unique_filename}"
+        
+        # Reset reactions for fresh community feedback
+        report.thumbs_up_count = 0
+        report.thumbs_down_count = 0
+        Reaction.query.filter_by(report_id=report.id).delete()
+        
+        # Notify admins and moderators
+        try:
+            admins_and_mods = User.query.filter(
+                or_(User.role == 'admin', User.role == 'moderator')
+            ).all()
+            
+            map_link = url_for('map_page', lat=report.latitude, lng=report.longitude, _external=False)
+            
+            for staff in admins_and_mods:
+                if staff.id == current_user.id:
+                    continue  # Don't notify self
+                
+                msg = f"User {current_user.username} reopened their report '{report.title}' with new photo evidence. The issue may have recurred or persists."
+                notif = Notification(
+                    user_id=staff.id,
+                    title="Report Reopened by User",
+                    message=msg,
+                    link=map_link
+                )
+                db.session.add(notif)
+        except Exception as e:
+            print(f"Error sending reopen notifications: {e}")
+        
+        db.session.commit()
+        
+        write_audit_log('REPORT_REOPENED', 'report', report.id, {
+            'report_title': report.title,
+            'user': current_user.username,
+            'new_photo': report.photo_path
+        })
+        
+        return jsonify({
+            'success': True,
+            'is_fixed': False,
+            'message': 'Report reopened successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error reopening report: {e}")
+        return jsonify({'error': 'Failed to reopen report'}), 500
 
 
 @app.route('/reports/<int:report_id>/flag-false', methods=['POST'])

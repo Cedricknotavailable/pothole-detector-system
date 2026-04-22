@@ -1161,15 +1161,18 @@
           const upClass = it.user_reaction === 'up' ? 'active' : '';
           const downClass = it.user_reaction === 'down' ? 'active' : '';
           
-          // Reaction buttons HTML
-          const reactionsHtml = it.is_fixed ? '' : `
+          // Reaction buttons HTML - ONLY show on FIXED reports
+          const reactionsHtml = it.is_fixed ? `
             <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
-                <button onclick="reactToReport(${it.id}, 'up')" class="reaction-btn ${upClass}" title="Fixed (Thumbs Up)">
-                    👍 ${it.thumbs_up || 0}
+                <button onclick="reactToReport(${it.id}, 'up')" class="reaction-btn ${upClass}" title="Verified Fixed">
+                    ✅ ${it.thumbs_up || 0}
                 </button>
-                <button onclick="reactToReport(${it.id}, 'down')" class="reaction-btn ${downClass}" title="Worsened (Thumbs Down)">
-                    👎 ${it.thumbs_down || 0}
+                <button onclick="reactToReport(${it.id}, 'down')" class="reaction-btn ${downClass}" title="Still Broken">
+                    ❌ ${it.thumbs_down || 0}
                 </button>
+            </div>
+          ` : `
+            <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
                 <button onclick="flagAsFalse(${it.id})" class="flag-btn" title="Flag as False Report">🚩 Flag</button>
             </div>
           `;

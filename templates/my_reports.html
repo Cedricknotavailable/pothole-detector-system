@@ -159,7 +159,7 @@
                     <th style="width: 15%;">Location</th>
                     <th style="width: 15%;">Submitted</th>
                     <th style="width: 15%;">Status</th>
-                    <th style="width: 15%;">Reactions</th>
+                    <th style="width: 15%;">Verification</th>
                     <th style="width: 15%; text-align: right;">Actions</th>
                   </tr>
                 </thead>
@@ -204,15 +204,24 @@
                           </div>
                         </td>
                         <td>
-                          <div class="reaction-pill">
-                            <span title="Thumbs Up">👍 {{ r.thumbs_up_count }}</span>
-                            <span style="color:#cbd5e1">|</span>
-                            <span title="Thumbs Down">👎 {{ r.thumbs_down_count }}</span>
-                          </div>
+                          {% if r.is_fixed %}
+                            <div class="reaction-pill">
+                              <span title="Verified Fixed">✅ {{ r.thumbs_up_count }}</span>
+                              <span style="color:#cbd5e1">|</span>
+                              <span title="Still Broken">❌ {{ r.thumbs_down_count }}</span>
+                            </div>
+                          {% else %}
+                            <span style="color: #94a3b8; font-size: 12px;">—</span>
+                          {% endif %}
                         </td>
                         <td style="text-align: right;">
                           {% if r.is_fixed %}
-                            <span class="badge badge--active">Fixed</span>
+                            <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center;">
+                              <span class="badge badge--active">Fixed</span>
+                              <button class="mini-btn" onclick="openReopenModal({{ r.id }})" title="Reopen Report">
+                                Reopen
+                              </button>
+                            </div>
                           {% else %}
                             <button class="mini-btn warn" onclick="markAsFixed({{ r.id }})" title="Mark as Fixed">
                               Mark Fixed
@@ -278,16 +287,23 @@
                           {% endif %}
                         </span>
                       </div>
-                      <div class="report-card-row">
-                        <span class="label">Reactions:</span>
-                        <div class="reaction-pill">
-                          <span>👍 {{ r.thumbs_up_count }}</span>
-                          <span style="color:#cbd5e1">|</span>
-                          <span>👎 {{ r.thumbs_down_count }}</span>
+                      {% if r.is_fixed %}
+                        <div class="report-card-row">
+                          <span class="label">Verification:</span>
+                          <div class="reaction-pill">
+                            <span>✅ {{ r.thumbs_up_count }}</span>
+                            <span style="color:#cbd5e1">|</span>
+                            <span>❌ {{ r.thumbs_down_count }}</span>
+                          </div>
                         </div>
-                      </div>
+                      {% endif %}
                     </div>
-                    {% if not r.is_fixed %}
+                    {% if r.is_fixed %}
+                      <div class="report-card-actions">
+                        <span class="badge badge--active" style="margin-right: auto;">Fixed</span>
+                        <button class="mini-btn" onclick="openReopenModal({{ r.id }})">Reopen</button>
+                      </div>
+                    {% else %}
                       <div class="report-card-actions">
                         <button class="mini-btn warn" onclick="markAsFixed({{ r.id }})">Mark Fixed</button>
                       </div>
@@ -468,9 +484,14 @@
           
           const badgeHtml = r.is_fixed ? '<span class="badge badge--active">Fixed</span>' : '';
           
-          const actionsHtml = !r.is_fixed 
-            ? `<div class="report-card-actions"><button class="mini-btn warn" onclick="markAsFixed(${r.id})">Mark Fixed</button></div>`
-            : '';
+          const actionsHtml = r.is_fixed 
+            ? `<div class="report-card-actions">
+                 <span class="badge badge--active" style="margin-right: auto;">Fixed</span>
+                 <button class="mini-btn" onclick="openReopenModal(${r.id})">Reopen</button>
+               </div>`
+            : `<div class="report-card-actions">
+                 <button class="mini-btn warn" onclick="markAsFixed(${r.id})">Mark Fixed</button>
+               </div>`;
           
           card.innerHTML = `
             <div class="report-card-header">
@@ -490,14 +511,16 @@
                 <span class="label">Status:</span>
                 <span>${statusHtml}</span>
               </div>
+              ${r.is_fixed ? `
               <div class="report-card-row">
-                <span class="label">Reactions:</span>
+                <span class="label">Verification:</span>
                 <div class="reaction-pill">
-                  <span>👍 ${r.thumbs_up_count}</span>
+                  <span>✅ ${r.thumbs_up_count}</span>
                   <span style="color:#cbd5e1">|</span>
-                  <span>👎 ${r.thumbs_down_count}</span>
+                  <span>❌ ${r.thumbs_down_count}</span>
                 </div>
               </div>
+              ` : ''}
             </div>
             ${actionsHtml}
           `;
@@ -618,5 +641,6 @@
       })();
     </script>
     {% include 'logout_modal.html' %}
+    {% include 'reopen_report_modal.html' %}
   </body>
 </html>

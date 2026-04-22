@@ -115,11 +115,11 @@
                   </div>
 
                   <div class="setting-group">
-                    <div class="setting-title">Automatic Fix Threshold (Community Validation)</div>
-                    <div class="setting-desc">The number of "thumbs up" (positive user confirmations) required for a report to be automatically marked as "Fixed".</div>
+                    <div class="setting-title">Auto-Reopen Threshold (Community Validation)</div>
+                    <div class="setting-desc">The number of "Still Broken" (❌) reactions required to automatically reopen a fixed report. This helps identify false fixes or recurring issues.</div>
                     <div class="setting-input-wrap">
                       <input type="number" name="auto_fix_threshold" class="control-input setting-input" min="1" value="{{ settings.auto_fix_threshold }}" required />
-                      <span class="setting-unit">thumbs up</span>
+                      <span class="setting-unit">❌ reactions</span>
                     </div>
                   </div>
 
